@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bản đồ số Địa chỉ đỏ & Du lịch - Quảng Ngãi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    #map { width: 100%; height: 100vh; background: #e5e3df; z-index: 1; }
+
+    /* Thanh tiêu đề trên cùng */
+    .top-bar {
+      position: fixed; top: 12px; left: 12px; right: 12px;
+      z-index: 1000; display: flex; align-items: center; gap: 10px;
+      pointer-events: none;
+    }
+    .menu-btn {
+      pointer-events: auto; background: #c62828; color: #fff;
+      border: none; border-radius: 10px; padding: 10px 14px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 6px;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    .menu-btn:hover { background: #b71c1c; }
+    .app-badge {
+      pointer-events: auto; background: rgba(255, 255, 255, 0.96);
+      color: #b71c1c; padding: 6px 14px; border-radius: 10px;
+      font-weight: 700; font-size: 13.5px; letter-spacing: 0.2px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18); border-left: 4px solid #c62828;
+      display: flex; align-items: center; gap: 8px;
+      max-width: calc(100vw - 135px);
+    }
+    .app-badge img { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+    .app-badge span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Góc tác giả nổi trên bản đồ */
+    .author-badge {
+      position: fixed; bottom: 10px; left: 54px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.92); color: #333;
+      padding: 5px 12px; border-radius: 8px; font-size: 11.5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18); border-left: 3px solid #c62828;
+      max-width: calc(100vw - 125px); line-height: 1.35;
+    }
+    .author-badge b { color: #b71c1c; }
+
+    /* Thanh bên (Sidebar) */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 335px; max-width: 88vw;
+      background: #fff; z-index: 2000; box-shadow: 4px 0 18px rgba(0,0,0,0.22);
+      display: flex; flex-direction: column;
+      transform: translateX(-100%); transition: transform 0.3s ease;
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-header {
+      background: linear-gradient(135deg, #b71c1c, #d32f2f);
+      color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .sidebar-brand { display: flex; align-items: center; gap: 8px; }
+    .sidebar-brand img {
+      width: 30px; height: 30px; object-fit: contain;
+      background: rgba(255,255,255,0.92); border-radius: 50%; padding: 2px;
+    }
+    .sidebar-header h2 { font-size: 15px; font-weight: 700; }
+    .sidebar-header span { font-size: 11.5px; opacity: 0.9; display: block; margin-top: 2px; }
+    .close-btn {
+      background: rgba(255,255,255,0.2); border: none; color: #fff;
+      width: 30px; height: 30px; border-radius: 50%; font-size: 18px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* Bộ lọc 3 tab */
+    .filter-tabs { display: flex; gap: 6px; padding: 10px 12px 0 12px; background: #fafafa; }
+    .tab-btn {
+      flex: 1; padding: 7px 4px; border: 1px solid #ddd; background: #fff;
+      border-radius: 8px; font-size: 12px; font-weight: 600; color: #555;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active-all { background: #37474f; color: #fff; border-color: #37474f; }
+    .tab-btn.active-red { background: #c62828; color: #fff; border-color: #c62828; }
+    .tab-btn.active-tour { background: #00897b; color: #fff; border-color: #00897b; }
+
+    .search-box { padding: 10px 12px 12px 12px; border-bottom: 1px solid #eee; background: #fafafa; }
+    .search-box input {
+      width: 100%; padding: 9px 12px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 13.5px; outline: none;
+    }
+    .search-box input:focus { border-color: #c62828; }
+
+    .place-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .place-item {
+      padding: 11px 12px; border-radius: 8px; margin-bottom: 8px;
+      border: 1px solid #eee; cursor: pointer; transition: all 0.2s;
+      background: #fff; border-left: 4px solid #c62828;
+    }
+    .place-item.is-tour { border-left-color: #00897b; }
+    .place-item:hover { background: #f9f9f9; }
+    .place-item h4 { color: #b71c1c; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .place-item.is-tour h4 { color: #00695c; }
+    .cat-pill { font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 700; flex-shrink: 0; }
+    .cat-pill.red { background: #ffebee; color: #c62828; }
+    .cat-pill.tour { background: #e0f2f1; color: #00695c; }
+    .place-item p {
+      color: #555; font-size: 12px; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .dist-tag {
+      display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600;
+      color: #1565c0; background: #e3f2fd; padding: 2px 8px; border-radius: 12px;
+    }
+
+    .sidebar-footer {
+      padding: 10px 14px; background: #f8f9fa; border-top: 1px solid #e5e7eb;
+      font-size: 11.5px; color: #555; line-height: 1.4;
+    }
+    .sidebar-footer b { color: #b71c1c; }
+
+    /* Nút nổi góc dưới phải */
+    .fab-group {
+      position: fixed; bottom: 24px; right: 14px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .fab-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: none;
+      background: #fff; color: #333; font-size: 18px; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25); display: flex;
+      align-items: center; justify-content: center; transition: transform 0.15s;
+    }
+    .fab-btn:active { transform: scale(0.92); }
+    .fab-btn.active { background: #1976d2; color: #fff; }
+    .fab-btn.chat-btn { background: #c62828; color: #fff; font-size: 20px; }
+
+    /* Giao diện Chatbot AI */
+    .chat-box {
+      position: fixed; bottom: 80px; right: 14px; width: 340px; max-width: calc(100vw - 28px);
+      height: 440px; max-height: 70vh; background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.28); z-index: 2500;
+      display: none; flex-direction: column; overflow: hidden; border: 1px solid #eee;
+    }
+    .chat-box.open { display: flex; }
+    .chat-header {
+      background: linear-gradient(135deg, #b71c1c, #d32f2f); color: #fff;
+      padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .chat-header h3 { font-size: 14px; font-weight: 700; }
+    .chat-header span { font-size: 11px; opacity: 0.9; display: block; }
+    .chat-messages {
+      flex: 1; padding: 12px; overflow-y: auto; background: #f8f9fa;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .msg {
+      max-width: 86%; padding: 9px 12px; border-radius: 12px;
+      font-size: 13px; line-height: 1.45; word-wrap: break-word;
+    }
+    .msg.bot { background: #fff; color: #222; align-self: flex-start; border: 1px solid #e5e7eb; border-bottom-left-radius: 3px; }
+    .msg.user { background: #1976d2; color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .quick-chips {
+      display: flex; gap: 6px; padding: 8px 10px; background: #fff;
+      border-top: 1px solid #eee; overflow-x: auto; white-space: nowrap;
+    }
+    .chip {
+      background: #fff5f5; color: #b71c1c; border: 1px solid #ffcdd2;
+      border-radius: 14px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    }
+    .chip:hover { background: #ffebee; }
+    .chat-input-area {
+      display: flex; gap: 6px; padding: 8px 10px; background: #fff; border-top: 1px solid #eee;
+    }
+    .chat-input-area input {
+      flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px;
+      font-size: 13px; outline: none;
+    }
+    .chat-input-area input:focus { border-color: #c62828; }
+    .chat-send-btn {
+      background: #c62828; color: #fff; border: none; border-radius: 50%;
+      width: 36px; height: 36px; cursor: pointer; font-size: 15px; flex-shrink: 0;
+    }
+
+    #toast {
+      position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+      z-index: 3000; background: rgba(33, 33, 33, 0.9); color: #fff;
+      padding: 7px 16px; border-radius: 20px; font-size: 12.5px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2); transition: opacity 0.3s; white-space: nowrap;
+    }
+
+    /* Chấm đỏ & Chấm xanh */
+    .red-dot {
+      width: 16px; height: 16px; background: #d32f2f;
+      border: 2.5px solid #fff; border-radius: 50%;
+      animation: pulse-red 2s infinite;
+    }
+    .tour-dot {
+      width: 16px; height: 16px; background: #00897b;
+      border: 2.5px solid #fff; border-radius: 50%;
+      animation: pulse-tour 2s infinite;
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(211, 47, 47, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+    }
+    @keyframes pulse-tour {
+      0% { box-shadow: 0 0 0 0 rgba(0, 137, 123, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(0, 137, 123, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 137, 123, 0); }
+    }
+    .user-dot {
+      width: 16px; height: 16px; background: #1976d2;
+      border: 3px solid #fff; border-radius: 50%;
+      box-shadow: 0 0 8px rgba(25, 118, 210, 0.8);
+    }
+
+    /* Popup thông tin */
+    .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
+    .leaflet-popup-content { margin: 0; width: 290px !important; }
+    .popup-card img { width: 100%; height: 145px; object-fit: cover; display: block; background: #f0f0f0; }
+    .popup-body { padding: 12px 14px; }
+    .popup-header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+    .popup-body h3 { color: #b71c1c; font-size: 15px; line-height: 1.3; }
+    .popup-body h3.tour-title { color: #00695c; }
+
+    .btn-voice {
+      flex-shrink: 0; background: #fff3e0; color: #e65100;
+      border: 1px solid #ffcc80; border-radius: 16px;
+      padding: 4px 9px; font-size: 11.5px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-voice:hover { background: #ffe0b2; }
+    .btn-voice.playing { background: #e65100; color: #fff; border-color: #e65100; }
+
+    .popup-body p { color: #444; font-size: 12.5px; line-height: 1.45; margin-bottom: 10px; max-height: 95px; overflow-y: auto; }
+
+    .popup-actions { display: flex; gap: 6px; }
+    .btn-dir, .btn-web {
+      flex: 1; text-align: center; padding: 8px 6px; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 12.5px; display: block;
+    }
+    .btn-dir { background: #1976d2; color: #fff !important; }
+    .btn-dir:hover { background: #1565c0; }
+    .btn-web { background: #f5f5f5; color: #333 !important; border: 1px solid #ddd; }
+    .btn-web:hover { background: #eeeeee; }
+    .btn-video {
+      display: block; text-align: center; padding: 7px 6px; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 12.5px; margin-top: 6px;
+      background: #e53935; color: #fff !important;
+    }
+    .btn-video:hover { background: #c62828; }
+
+    .nearby-box { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #e0e0e0; }
+    .nearby-title { font-size: 11.5px; font-weight: 700; color: #555; margin-bottom: 6px; }
+    .nearby-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #fff5f5; border: 1px solid #ffcdd2; border-radius: 6px;
+      padding: 5px 8px; margin-bottom: 5px; cursor: pointer;
+      font-size: 12px; color: #b71c1c; transition: background 0.15s;
+    }
+    .nearby-item.is-tour { background: #e0f2f1; border-color: #b2dfdb; color: #00695c; }
+    .nearby-item:hover { opacity: 0.85; }
+    .nearby-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 185px; font-weight: 600; }
+    .nearby-km { font-size: 11px; color: #1565c0; font-weight: 700; flex-shrink: 0; margin-left: 6px; }
+
+    .custom-tooltip {
+      background: rgba(255, 255, 255, 0.92); border: 1px solid #d32f2f;
+      color: #b71c1c; font-weight: 700; font-size: 11px;
+      border-radius: 6px; padding: 2px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .custom-tooltip-tour {
+      background: rgba(255, 255, 255, 0.92); border: 1px solid #00897b;
+      color: #00695c; font-weight: 700; font-size: 11px;
+      border-radius: 6px; padding: 2px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Thanh tiêu đề -->
+  <div class="top-bar">
+    <button class="menu-btn" onclick="toggleSidebar()">☰ Danh sách</button>
+    <div class="app-badge">
+      <img id="logo-ca-top" alt="Công an" onerror="this.style.display='none'">
+      <img id="logo-doan-top" alt="Đoàn TN" onerror="this.style.display='none'">
+      <span>ĐỊA CHỈ ĐỎ & DU LỊCH QUẢNG NGÃI</span>
+    </div>
+  </div>
+
+  <!-- Thanh bên Danh sách & Tìm kiếm -->
+  <div id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <img id="logo-ca-side" alt="Công an" onerror="this.style.display='none'">
+        <img id="logo-doan-side" alt="Đoàn TN" onerror="this.style.display='none'">
+        <div>
+          <h2>Quảng Ngãi Số</h2>
+          <span id="total-count">Đang tải dữ liệu...</span>
+        </div>
+      </div>
+      <button class="close-btn" onclick="toggleSidebar()">×</button>
+    </div>
+
+    <div class="filter-tabs">
+      <button id="tab-all" class="tab-btn active-all" onclick="setCategory('all')">Tất cả</button>
+      <button id="tab-red" class="tab-btn" onclick="setCategory('diachido')">🔴 Địa chỉ đỏ</button>
+      <button id="tab-tour" class="tab-btn" onclick="setCategory('dulich')">🟢 Du lịch</button>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="🔍 Tìm tên di tích, khu du lịch..." oninput="applyFilters()">
+    </div>
+    <div id="place-list" class="place-list"></div>
+    <div class="sidebar-footer">
+      Tác giả: <b>Mai Tấn Duy</b><br>
+      Cán bộ Phòng Tham mưu, Công an tỉnh Quảng Ngãi
+    </div>
+  </div>
+
+  <!-- Bản đồ -->
+  <div id="map"></div>
+
+  <!-- Góc tác giả -->
+  <div class="author-badge">
+    Tác giả: <b>Mai Tấn Duy</b> – Cán bộ Phòng Tham mưu, Công an tỉnh Quảng Ngãi
+  </div>
+
+  <!-- Nút chức năng -->
+  <div class="fab-group">
+    <button class="fab-btn chat-btn" title="Trợ lý AI gợi ý lịch trình" onclick="toggleChat()">💬</button>
+    <button class="fab-btn" id="btn-layer" title="Đổi bản đồ Vệ tinh / Đường phố" onclick="toggleLayer()">🛰️</button>
+    <button class="fab-btn" id="btn-locate" title="Vị trí của tôi" onclick="locateUser()">🎯</button>
+  </div>
+
+  <!-- Khung Chatbot AI -->
+  <div id="chat-box" class="chat-box">
+    <div class="chat-header">
+      <div>
+        <h3>🤖 Trợ lý Du lịch & Về nguồn</h3>
+        <span>Gợi ý lịch trình thông minh tại Quảng Ngãi</span>
+      </div>
+      <button class="close-btn" onclick="toggleChat()">×</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+      <div class="msg bot">Xin chào! Bạn muốn tìm hiểu về Địa chỉ đỏ nào hay cần gợi ý lịch trình du lịch tại Quảng Ngãi? Hãy nhắn cho mình nhé!</div>
+    </div>
+    <div class="quick-chips">
+      <button class="chip" onclick="sendQuickMsg('Tôi có 1 ngày ở Quảng Ngãi, gợi ý lịch trình đi đâu hợp lý?')">🗓️ Lịch trình 1 ngày</button>
+      <button class="chip" onclick="sendQuickMsg('Gợi ý tour kết hợp Địa chỉ đỏ và đi biển gần nhau')">🌊 Về nguồn + Biển</button>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="chat-input" placeholder="Nhập câu hỏi..." onkeypress="if(event.key==='Enter') sendChat()">
+      <button class="chat-send-btn" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+
+  <div id="toast">Đang tải bản đồ...</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=0&single=true&output=tsv';
+    const LOGO_CONG_AN   = 'https://drive.google.com/file/d/1bbKKMYpO7jgozQ8YT9So2zYMOUSlPmY6/view?usp=drive_link';
+    const LOGO_DOAN      = 'https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png?utm_source=vi.wikipedia.org&utm_campaign=index&utm_content=original';
+
+    function formatImageUrl(url) {
+      if (!url) return '';
+      var str = String(url).trim();
+      var match = str.match(/\/d\/([a-zA-Z0-9_-]+)/) || str.match(/id=([a-zA-Z0-9_-]+)/);
+      if (str.indexOf('drive.google.com') !== -1 && match && match[1]) {
+        return 'https://lh3.googleusercontent.com/d/' + match[1];
+      }
+      return str;
+    }
+
+    function formatAudioUrl(url) {
+      if (!url) return '';
+      var str = String(url).trim();
+      var match = str.match(/\/d\/([a-zA-Z0-9_-]+)/) || str.match(/id=([a-zA-Z0-9_-]+)/);
+      if (str.indexOf('drive.google.com') !== -1 && match && match[1]) {
+        return 'https://docs.google.com/uc?export=download&id=' + match[1];
+      }
+      return str;
+    }
+
+    function setLogo(ids, url) {
+      var clean = formatImageUrl(url);
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (clean) { el.src = clean; } else { el.style.display = 'none'; }
+      }
+    }
+    setLogo(['logo-ca-top', 'logo-ca-side'], LOGO_CONG_AN);
+    setLogo(['logo-doan-top', 'logo-doan-side'], LOGO_DOAN);
+
+    var map, streetLayer, satLayer, isSatellite = false;
+    var allPlaces = [];
+    var markersMap = {};
+    var userMarker = null;
+    var userCoords = null;
+    var clusterGroup = null;
+    var currentCategory = 'all';
+    var currentAudio = null;
+    var playingKey = null;
+    var chatHistory = [];
+
+    function showToast(msg, duration) {
+      var t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.opacity = '1';
+      t.style.display = 'block';
+      if (duration) {
+        setTimeout(function() {
+          t.style.opacity = '0';
+          setTimeout(function() { t.style.display = 'none'; }, 300);
+        }, duration);
+      }
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+
+    function stopAllVoice() {
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); }
+      if (playingKey) {
+        var oldBtn = document.getElementById('voice-btn-' + playingKey);
+        if (oldBtn) { oldBtn.classList.remove('playing'); oldBtn.innerText = '🔊 Nghe'; }
+        playingKey = null;
+      }
+    }
+
+    function speakTextFallback(text) {
+      if (!('speechSynthesis' in window)) {
+        showToast('Trình duyệt không hỗ trợ đọc văn bản tự động.', 3000);
+        stopAllVoice();
+        return;
+      }
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'vi-VN';
+      utter.rate = 0.95;
+      utter.onend = function() { stopAllVoice(); };
+      utter.onerror = function() { stopAllVoice(); };
+      window.speechSynthesis.speak(utter);
+    }
+
+    window.toggleVoice = function(idKey) {
+      if (playingKey === idKey) { stopAllVoice(); return; }
+      stopAllVoice();
+
+      var place = allPlaces.find(function(x) { return x.idKey === idKey; });
+      if (!place) return;
+
+      playingKey = idKey;
+      var btn = document.getElementById('voice-btn-' + idKey);
+      if (btn) { btn.classList.add('playing'); btn.innerText = '⏹️ Dừng'; }
+
+      var textToRead = (place.TenDiaDanh || '') + '. ' + (place.TomTat || 'Chưa có nội dung thuyết minh.');
+
+      if (place.cleanAudio) {
+        currentAudio = new Audio(place.cleanAudio);
+        currentAudio.onended = function() { stopAllVoice(); };
+        currentAudio.onerror = function() { speakTextFallback(textToRead); };
+        currentAudio.play().catch(function() { speakTextFallback(textToRead); });
+      } else {
+        speakTextFallback(textToRead);
+      }
+    };
+
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      var R = 6371;
+      var dLat = (lat2 - lat1) * Math.PI / 180;
+      var dLon = (lon2 - lon1) * Math.PI / 180;
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    window.openPlaceByKey = function(idKey) {
+      stopAllVoice();
+      var p = allPlaces.find(function(x) { return x.idKey === idKey; });
+      var m = markersMap[idKey];
+      if (p && m) {
+        if (!clusterGroup.hasLayer(m)) clusterGroup.addLayer(m);
+        if (typeof clusterGroup.zoomToShowLayer === 'function') {
+          clusterGroup.zoomToShowLayer(m, function() {
+            map.flyTo([p.lat, p.lng], 14, { duration: 0.8 });
+            m.openPopup();
+          });
+        } else {
+          map.flyTo([p.lat, p.lng], 14, { duration: 0.8 });
+          m.openPopup();
+        }
+      }
+    };
+
+    function buildNearbyHtml(currentPlace) {
+      var others = [];
+      for (var i = 0; i < allPlaces.length; i++) {
+        var other = allPlaces[i];
+        if (other.idKey !== currentPlace.idKey) {
+          var d = calcDistance(currentPlace.lat, currentPlace.lng, other.lat, other.lng);
+          others.push({ place: other, dist: d });
+        }
+      }
+      if (others.length === 0) return '';
+
+      others.sort(function(a, b) { return a.dist - b.dist; });
+      var top = others.slice(0, 3);
+
+      var html = '<div class="nearby-box"><div class="nearby-title">📍 Điểm gần đây (tiện kết hợp đi):</div>';
+      for (var j = 0; j < top.length; j++) {
+        var o = top[j].place;
+        var cls = o.isTour ? 'nearby-item is-tour' : 'nearby-item';
+        var iconTxt = o.isTour ? '🟢 ' : '🔴 ';
+        html +=
+          '<div class="' + cls + '" onclick="openPlaceByKey(\'' + o.idKey + '\')">' +
+            '<span class="nearby-name">' + iconTxt + o.TenDiaDanh + '</span>' +
+            '<span class="nearby-km">~' + top[j].dist.toFixed(1) + ' km</span>' +
+          '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function toggleLayer() {
+      var btn = document.getElementById('btn-layer');
+      if (isSatellite) {
+        map.removeLayer(satLayer); streetLayer.addTo(map);
+        btn.classList.remove('active'); showToast('Chế độ bản đồ đường phố', 2000);
+      } else {
+        map.removeLayer(streetLayer); satLayer.addTo(map);
+        btn.classList.add('active'); showToast('Chế độ bản đồ vệ tinh', 2000);
+      }
+      isSatellite = !isSatellite;
+    }
+
+    function locateUser() {
+      if (!navigator.geolocation) {
+        showToast('Trình duyệt không hỗ trợ định vị GPS', 3000);
+        return;
+      }
+      showToast('Đang xác định vị trí của bạn...');
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var uLat = pos.coords.latitude;
+        var uLng = pos.coords.longitude;
+        userCoords = { lat: uLat, lng: uLng };
+        var userIcon = L.divIcon({
+          className: 'custom-div-icon', html: '<div class="user-dot"></div>',
+          iconSize: [20, 20], iconAnchor: [10, 10]
+        });
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([uLat, uLng], { icon: userIcon })
+          .addTo(map).bindPopup('<b>Vị trí hiện tại của bạn</b>').openPopup();
+        map.flyTo([uLat, uLng], 12);
+
+        for (var i = 0; i < allPlaces.length; i++) {
+          allPlaces[i].distance = calcDistance(uLat, uLng, allPlaces[i].lat, allPlaces[i].lng);
+        }
+        allPlaces.sort(function(a, b) { return a.distance - b.distance; });
+        applyFilters();
+        showToast('Đã định vị! Danh sách đã sắp xếp từ gần đến xa.', 3500);
+      }, function() {
+        showToast('Không thể lấy vị trí. Hãy cấp quyền GPS cho trình duyệt.', 3500);
+      });
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.getElementById('tab-all').className = 'tab-btn' + (cat === 'all' ? ' active-all' : '');
+      document.getElementById('tab-red').className = 'tab-btn' + (cat === 'diachido' ? ' active-red' : '');
+      document.getElementById('tab-tour').className = 'tab-btn' + (cat === 'dulich' ? ' active-tour' : '');
+      applyFilters();
+    }
+
+    function applyFilters() {
+      var kw = document.getElementById('search-input').value.toLowerCase().trim();
+      var filtered = [];
+
+      for (var i = 0; i < allPlaces.length; i++) {
+        var p = allPlaces[i];
+        var matchCat = (currentCategory === 'all') ||
+                       (currentCategory === 'dulich' && p.isTour) ||
+                       (currentCategory === 'diachido' && !p.isTour);
+        var matchKw = !kw ||
+                      (p.TenDiaDanh || '').toLowerCase().indexOf(kw) !== -1 ||
+                      (p.TomTat || '').toLowerCase().indexOf(kw) !== -1;
+
+        var m = markersMap[p.idKey];
+        if (matchCat && matchKw) {
+          filtered.push(p);
+          if (m && clusterGroup && !clusterGroup.hasLayer(m)) clusterGroup.addLayer(m);
+        } else {
+          if (m && clusterGroup && clusterGroup.hasLayer(m)) clusterGroup.removeLayer(m);
+        }
+      }
+      renderList(filtered);
+    }
+
+    function renderList(list) {
+      var container = document.getElementById('place-list');
+      container.innerHTML = '';
+      if (list.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#888;padding:20px;font-size:13px;">Không tìm thấy địa điểm nào.</p>';
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        (function(p) {
+          var div = document.createElement('div');
+          div.className = 'place-item' + (p.isTour ? ' is-tour' : '');
+          var pill = p.isTour
+            ? '<span class="cat-pill tour">Du lịch</span>'
+            : '<span class="cat-pill red">Địa chỉ đỏ</span>';
+          var distHtml = (typeof p.distance === 'number')
+            ? '<span class="dist-tag">📍 Cách bạn ' + p.distance.toFixed(1) + ' km</span>'
+            : '';
+          div.innerHTML = '<h4><span>' + p.TenDiaDanh + '</span>' + pill + '</h4><p>' + (p.TomTat || '') + '</p>' + distHtml;
+          div.onclick = function() {
+            window.openPlaceByKey(p.idKey);
+            if (window.innerWidth < 768) toggleSidebar();
+          };
+          container.appendChild(div);
+        })(list[i]);
+      }
+    }
+
+    // ===== KHỞI TẠO BẢN ĐỒ & ĐỌC DỮ LIỆU GOOGLE SHEETS (TSV) =====
+    map = L.map('map', { zoomControl: false, maxZoom: 20 }).setView([15.1214, 108.8044], 10);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    map.on('popupclose', function() { stopAllVoice(); });
+
+    streetLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps'
+    }).addTo(map);
+
+    satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Satellite'
+    });
+
+    clusterGroup = (typeof L.markerClusterGroup === 'function')
+      ? L.markerClusterGroup({ maxClusterRadius: 45 })
+      : L.layerGroup();
+    map.addLayer(clusterGroup);
+
+    var redIcon = L.divIcon({
+      className: 'custom-div-icon', html: '<div class="red-dot"></div>',
+      iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+    var tourIcon = L.divIcon({
+      className: 'custom-div-icon', html: '<div class="tour-dot"></div>',
+      iconSize: [20, 20], iconAnchor: [10, 10]
+    });
+
+    Papa.parse(SHEET_DATA_URL, {
+      download: true,
+      header: true,
+      delimiter: '\t',
+      skipEmptyLines: true,
+      complete: function(results) {
+        var data = results.data || [];
+        var bounds = [];
+        allPlaces = [];
+        var countRed = 0, countTour = 0;
+
+        for (var i = 0; i < data.length; i++) {
+          var item = data[i];
+          if (!item.TenDiaDanh) continue;
+
+          // Nếu có cột TrangThai, bỏ qua những dòng ghi "Chờ" hoặc "Ẩn"
+          var status = String(item.TrangThai || '').toLowerCase().trim();
+          if (status && (status.indexOf('chờ') !== -1 || status.indexOf('cho') !== -1 || status.indexOf('ẩn') !== -1 || status.indexOf('an') !== -1)) {
+            continue;
+          }
+
+          var lat = parseFloat(String(item.ViDo || '').replace(',', '.'));
+          var lng = parseFloat(String(item.KinhDo || '').replace(',', '.'));
+
+          if (!isNaN(lat) && !isNaN(lng)) {
+            var loai = String(item.PhanLoai || '').toLowerCase();
+            item.isTour = (loai.indexOf('dulich') !== -1 || loai.indexOf('du lịch') !== -1);
+            if (item.isTour) countTour++; else countRed++;
+
+            item.lat = lat;
+            item.lng = lng;
+            item.idKey = 'p_' + i;
+            item.cleanImg = formatImageUrl(item.LinkAnh);
+            item.cleanAudio = formatAudioUrl(item.LinkAudio);
+            allPlaces.push(item);
+            bounds.push([lat, lng]);
+          }
+        }
+
+        for (var j = 0; j < allPlaces.length; j++) {
+          var p = allPlaces[j];
+          var ggMapLink = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
+          var imgHTML = p.cleanImg ? '<img src="' + p.cleanImg + '" onerror="this.style.display=\'none\'">' : '';
+          var webBtnHTML = p.LinkWeb
+            ? '<a href="' + String(p.LinkWeb).trim() + '" target="_blank" class="btn-web">🌐 Liên hệ / Web</a>'
+            : '';
+          var videoBtnHTML = p.LinkVideo
+            ? '<a href="' + String(p.LinkVideo).trim() + '" target="_blank" class="btn-video">🎬 Xem Video / Ảnh 360°</a>'
+            : '';
+          var nearbyHTML = buildNearbyHtml(p);
+          var titleCls = p.isTour ? ' class="tour-title"' : '';
+
+          var popupContent =
+            '<div class="popup-card">' +
+              imgHTML +
+              '<div class="popup-body">' +
+                '<div class="popup-header-row">' +
+                  '<h3' + titleCls + '>' + p.TenDiaDanh + '</h3>' +
+                  '<button id="voice-btn-' + p.idKey + '" class="btn-voice" onclick="toggleVoice(\'' + p.idKey + '\')">🔊 Nghe</button>' +
+                '</div>' +
+                '<p>' + (p.TomTat || 'Đang cập nhật thông tin...') + '</p>' +
+                '<div class="popup-actions">' +
+                  '<a href="' + ggMapLink + '" target="_blank" class="btn-dir">🧭 Chỉ đường</a>' +
+                  webBtnHTML +
+                '</div>' +
+                videoBtnHTML +
+                nearbyHTML +
+              '</div>' +
+            '</div>';
+
+          var marker = L.marker([p.lat, p.lng], { icon: p.isTour ? tourIcon : redIcon })
+            .addTo(clusterGroup)
+            .bindPopup(popupContent)
+            .bindTooltip(p.TenDiaDanh, {
+              permanent: false, direction: 'top', offset: [0, -10],
+              className: p.isTour ? 'custom-tooltip-tour' : 'custom-tooltip'
+            });
+
+          markersMap[p.idKey] = marker;
+        }
+
+        document.getElementById('total-count').innerText = countRed + ' Địa chỉ đỏ • ' + countTour + ' Du lịch';
+        applyFilters();
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [60, 60], maxZoom: 13 });
+        }
+        showToast('Đã tải ' + allPlaces.length + ' địa điểm.', 2500);
+      },
+      error: function(err) {
+        showToast('Lỗi tải dữ liệu Google Sheets.', 5000);
+      }
+    });
+
+    // ===== LOGIC CHATBOT AI (GỌI QUA VERCEL /api/chat) =====
+    function toggleChat() {
+      document.getElementById('chat-box').classList.toggle('open');
+    }
+
+    function appendMsg(text, sender) {
+      var box = document.getElementById('chat-messages');
+      var div = document.createElement('div');
+      div.className = 'msg ' + sender;
+      var formatted = String(text)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.*?)\*/g, '<i>$1</i>')
+        .replace(/\n/g, '<br>');
+      div.innerHTML = formatted;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    function sendQuickMsg(text) {
+      document.getElementById('chat-input').value = text;
+      sendChat();
+    }
+
+    function buildPlacesContext() {
+      var list = '';
+      for (var i = 0; i < allPlaces.length; i++) {
+        var p = allPlaces[i];
+        var shortDesc = String(p.TomTat || '').substring(0, 100);
+        list += '- ' + p.TenDiaDanh + ' [' + (p.isTour ? 'Du lịch' : 'Địa chỉ đỏ') + '] (' + p.lat + ',' + p.lng + '): ' + shortDesc + '\n';
+      }
+      return list;
+    }
+
+    function buildLocalPlan() {
+      var reds = allPlaces.filter(function(p) { return !p.isTour; });
+      var tours = allPlaces.filter(function(p) { return p.isTour; });
+      if (allPlaces.length === 0) return 'Chưa có dữ liệu địa điểm trên bản đồ.';
+
+      var anchor = userCoords
+        ? userCoords
+        : (reds.length > 0 ? reds[Math.floor(Math.random() * reds.length)] : allPlaces[0]);
+
+      var nearReds = reds.slice().sort(function(a, b) {
+        return calcDistance(anchor.lat, anchor.lng, a.lat, a.lng) - calcDistance(anchor.lat, anchor.lng, b.lat, b.lng);
+      }).slice(0, 2);
+
+      var afternoonAnchor = nearReds.length > 0 ? nearReds[0] : anchor;
+      var nearTours = tours.slice().sort(function(a, b) {
+        return calcDistance(afternoonAnchor.lat, afternoonAnchor.lng, a.lat, a.lng) -
+               calcDistance(afternoonAnchor.lat, afternoonAnchor.lng, b.lat, b.lng);
+      }).slice(0, 2);
+
+      var txt = userCoords
+        ? 'Gợi ý lịch trình **gần vị trí hiện tại của bạn nhất**:\n\n'
+        : 'Gợi ý tuyến hành trình kết hợp các điểm **nằm gần nhau**:\n\n';
+
+      if (nearReds.length > 0) {
+        txt += '**☀️ Buổi sáng (Về nguồn):**\n';
+        for (var i = 0; i < nearReds.length; i++) txt += '- Tham quan **' + nearReds[i].TenDiaDanh + '**\n';
+      }
+      if (nearTours.length > 0) {
+        txt += '\n**🌊 Buổi chiều (Du lịch lân cận):**\n';
+        for (var j = 0; j < nearTours.length; j++) {
+          var km = calcDistance(afternoonAnchor.lat, afternoonAnchor.lng, nearTours[j].lat, nearTours[j].lng).toFixed(1);
+          txt += '- Ghé **' + nearTours[j].TenDiaDanh + '** (cách điểm sáng ~' + km + ' km)\n';
+        }
+      }
+      txt += '\n💡 *Bật nút định vị 🎯 góc phải để mình gợi ý chính xác theo chỗ bạn đang đứng nhé!*';
+      return txt;
+    }
+
+    async function sendChat() {
+      var input = document.getElementById('chat-input');
+      var text = input.value.trim();
+      if (!text) return;
+
+      appendMsg(text, 'user');
+      input.value = '';
+      var loadingEl = appendMsg('Đang suy nghĩ...', 'bot');
+
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function() { controller.abort(); }, 12000);
+
+      try {
+        var res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            question: text,
+            history: chatHistory.slice(-4),
+            context: buildPlacesContext()
+          })
+        });
+        clearTimeout(timeoutId);
+        var data = await res.json();
+        loadingEl.remove();
+
+        if (data && data.ok && data.text) {
+          appendMsg(data.text, 'bot');
+          chatHistory.push({ role: 'user', text: text });
+          chatHistory.push({ role: 'model', text: data.text });
+          if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
+        } else {
+          if (text.toLowerCase().indexOf('lịch trình') !== -1 || text.toLowerCase().indexOf('1 ngày') !== -1) {
+            appendMsg(buildLocalPlan(), 'bot');
+          } else {
+            appendMsg('⚠️ Trợ lý AI tạm bận (' + (data.text || 'lỗi kết nối') + '). Bạn thử gửi lại sau vài giây nhé!', 'bot');
+          }
+        }
+      } catch (e) {
+        clearTimeout(timeoutId);
+        loadingEl.remove();
+        if (text.toLowerCase().indexOf('lịch trình') !== -1 || text.toLowerCase().indexOf('1 ngày') !== -1) {
+          appendMsg(buildLocalPlan(), 'bot');
+        } else {
+          appendMsg('⏳ Máy chủ AI đang hơi chậm, bạn thử gửi lại câu hỏi sau vài giây nhé!', 'bot');
+        }
+      }
+    }
+  </script>
+</body>
+</html>
