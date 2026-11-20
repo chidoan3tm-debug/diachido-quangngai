@@ -7,17 +7,29 @@ async function getActiveGroqModel(apiKey) {
       headers: { Authorization: "Bearer " + apiKey }
     });
     const json = await res.json();
-    if (!json.data || json.data.length === 0) return "llama-3.1-8b-instant";
+    if (!json.data || json.data.length === 0) return "llama-3.3-70b-versatile";
 
     const chatModels = json.data
       .map(m => m.id)
       .filter(id => {
         const low = id.toLowerCase();
         return !low.includes("whisper") && !low.includes("tts") &&
-               !low.includes("guard") && !low.includes("embed");
+               !low.includes("guard") && !low.includes("embed") &&
+               !low.includes("safeguard");
       });
 
-    const chosen = chatModels.find(id => id.toLowerCase().includes("llama")) || chatModels[0] || "llama-3.1-8b-instant";
+    // Ưu tiên chọn model lớn nói tiếng Việt cực chuẩn trước
+    const priorities = ["qwen", "llama-4", "70b", "120b", "kimi", "gemma2", "versatile", "llama"];
+    let chosen = chatModels[0] || "llama-3.1-8b-instant";
+
+    for (const kw of priorities) {
+      const found = chatModels.find(id => id.toLowerCase().includes(kw) && !id.toLowerCase().includes("8b"));
+      if (found) {
+        chosen = found;
+        break;
+      }
+    }
+
     cachedModel = chosen;
     return chosen;
   } catch (e) {
@@ -41,12 +53,12 @@ module.exports = async function handler(req, res) {
   }
 
   const systemText =
-    "Bạn là Trợ lý ảo Du lịch & Về nguồn thông minh của Tuổi trẻ Công an tỉnh Quảng Ngãi.\n" +
-    "Dữ liệu thực tế trên bản đồ số hiện có:\n" + (context || "") + "\n" +
-    "Nguyên tắc trả lời:\n" +
-    "1. Trả lời tự nhiên, linh hoạt, đúng trọng tâm câu hỏi của người dùng.\n" +
-    "2. CHỈ chia buổi (Sáng - Chiều) khi người dùng hỏi lịch trình, ưu tiên ghép các điểm gần nhau theo tọa độ.\n" +
-    "3. Ngắn gọn, thân thiện, dễ đọc trên điện thoại (dưới 180 chữ).";
+    "Bạn là Trợ lý ảo Du lịch & Về nguồn của Tuổi trẻ Công an tỉnh Quảng Ngãi.\n" +
+    "Dữ liệu chính thức trên bản đồ số:\n" + (context || "") + "\n" +
+    "Nguyên tắc bắt buộc:\n" +
+    "1. Sử dụng tiếng Việt chuẩn xác, tự nhiên, lịch sự, không sai chính tả.\n" +
+    "2. CHỈ giới thiệu các địa danh có thật tại Quảng Ngãi (ưu tiên đúng tên trong dữ liệu bản đồ). Tuyệt đối KHÔNG tự bịa tên địa danh hay đọc tọa độ số ra cho người dùng.\n" +
+    "3. Trả lời đúng trọng tâm câu hỏi, ngắn gọn dưới 180 chữ. Chỉ chia buổi (Sáng - Chiều) khi người dùng hỏi lịch trình.";
 
   const messages = [{ role: "system", content: systemText }];
   if (Array.isArray(history)) {
@@ -71,7 +83,7 @@ module.exports = async function handler(req, res) {
         model,
         messages,
         max_tokens: 450,
-        temperature: 0.7
+        temperature: 0.3
       })
     });
 
@@ -81,7 +93,9 @@ module.exports = async function handler(req, res) {
 
     const json = await groqRes.json();
     if (json.choices && json.choices[0] && json.choices[0].message) {
-      return res.status(200).json({ ok: true, text: json.choices[0].message.content });
+      // Lọc bỏ thẻ <think>...</think> nếu model thuộc dòng suy luận (như Qwen)
+      let replyText = json.choices[0].message.content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      return res.status(200).json({ ok: true, text: replyText });
     }
     return res.status(200).json({ ok: false, text: json.error ? json.error.message : "máy chủ AI phản hồi chậm" });
   } catch (e) {
