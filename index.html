@@ -752,7 +752,7 @@
     map.on('popupclose', function() { stopAllVoice(); });
 
     // Nạp ranh giới hành chính tỉnh Quảng Ngãi (GeoJSON từ OpenStreetMap)
-    fetch('/quangngai.geojson')
+    fetch('/quangngai.json')
       .then(function(res) { return res.json(); })
       .then(function(geo) {
         if (!geo || !geo.features || !geo.features[0]) return;
