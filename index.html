@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
-
+  
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html { width: 100%; height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -274,6 +274,73 @@
       color: #00695c; font-weight: 700; font-size: 11px;
       border-radius: 6px; padding: 2px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
+    /* Nút Check-in & Lộ trình trong Popup */
+    .popup-extra-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .btn-checkin, .btn-route {
+      flex: 1; text-align: center; padding: 7px 6px; border-radius: 8px;
+      border: none; font-weight: 600; font-size: 12px; cursor: pointer;
+    }
+    .btn-checkin { background: #ff8f00; color: #fff; }
+    .btn-checkin:hover { background: #ef6c00; }
+    .btn-route { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .btn-route:hover { background: #c8e6c9; }
+
+    /* Thanh lộ trình nổi */
+    .route-bar {
+      position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
+      z-index: 1500; background: #fff; padding: 8px 12px; border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25); border: 2px solid #1976d2;
+      display: none; align-items: center; gap: 10px; max-width: 92vw;
+    }
+    .route-bar.show { display: flex; }
+    .route-info { font-size: 12px; color: #333; line-height: 1.3; }
+    .route-info b { color: #1565c0; }
+    .btn-go-route {
+      background: #1976d2; color: #fff; border: none; border-radius: 8px;
+      padding: 7px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-clear-route {
+      background: #ffebee; color: #c62828; border: none; border-radius: 8px;
+      padding: 7px 9px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+
+    /* Hộp thoại Check-in & Thẻ chứng nhận */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 4000;
+      display: none; align-items: center; justify-content: center; padding: 14px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card {
+      background: #fff; width: 100%; max-width: 420px; border-radius: 14px;
+      overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .modal-head {
+      background: linear-gradient(135deg, #b71c1c, #d32f2f); color: #fff;
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-head h3 { font-size: 15px; }
+    .modal-body { padding: 14px 16px; max-height: 80vh; overflow-y: auto; }
+    .modal-body label { display: block; font-size: 12.5px; font-weight: 600; color: #333; margin-bottom: 4px; }
+    .modal-body input {
+      width: 100%; padding: 9px 11px; border: 1px solid #ccc; border-radius: 8px;
+      font-size: 13.5px; margin-bottom: 10px; outline: none;
+    }
+    .modal-body input:focus { border-color: #c62828; }
+    .btn-create-cert {
+      width: 100%; padding: 10px; background: #c62828; color: #fff; border: none;
+      border-radius: 8px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    }
+    #cert-preview { width: 100%; border-radius: 8px; margin-top: 12px; border: 1px solid #ddd; display: none; }
+    .btn-download-cert {
+      display: none; width: 100%; text-align: center; padding: 10px; margin-top: 8px;
+      background: #2e7d32; color: #fff; text-decoration: none; border-radius: 8px;
+      font-size: 13.5px; font-weight: 700;
+    }
+    .contact-box {
+      margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d1d5db;
+      font-size: 11.5px; color: #374151;
+    }
+    .contact-box a { color: #1565c0; text-decoration: none; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -315,8 +382,11 @@
     <div class="sidebar-footer">
       Tác giả: <b>Mai Tấn Duy</b><br>
       Cán bộ Phòng Tham mưu, Công an tỉnh Quảng Ngãi
+      <div class="contact-box">
+        📩 Đơn vị cần bổ sung địa điểm xin liên hệ:<br>
+        📞 SĐT/Zalo: <a href="tel:0912141316"></a>
+      </div>
     </div>
-  </div>
 
   <!-- Bản đồ -->
   <div id="map"></div>
@@ -354,7 +424,34 @@
       <button class="chat-send-btn" onclick="sendChat()">➤</button>
     </div>
   </div>
+<!-- Thanh lộ trình nhiều điểm -->
+  <div id="route-bar" class="route-bar">
+    <div class="route-info" id="route-info">Đã chọn <b>0</b> điểm</div>
+    <button class="btn-go-route" onclick="openGoogleMapsRoute()">🧭 Dẫn đường</button>
+    <button class="btn-clear-route" onclick="clearRoute()">✕</button>
+  </div>
 
+  <!-- Khung Check-in & Thẻ chứng nhận -->
+  <div id="checkin-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>🏅 Check-in Hành trình về nguồn</h3>
+        <button class="close-btn" onclick="closeCheckin()">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="checkin-place-name" style="font-weight:700;color:#b71c1c;margin-bottom:10px;font-size:14px;"></p>
+        <label>Họ và tên người tham gia:</label>
+        <input type="text" id="ci-name" placeholder="Ví dụ: Nguyễn Văn A">
+        <label>Đơn vị / Chi đoàn (không bắt buộc):</label>
+        <input type="text" id="ci-unit" placeholder="Ví dụ: Đoàn Thanh niên Công an tỉnh">
+        <button class="btn-create-cert" onclick="generateCertificate()">✨ Tạo Thẻ chứng nhận điện tử</button>
+        <canvas id="cert-canvas" width="900" height="580" style="display:none;"></canvas>
+        <img id="cert-preview" alt="Thẻ chứng nhận">
+        <a id="btn-download-cert" class="btn-download-cert" download="The-Chung-Nhan-Ve-Nguon.png">⬇️ Tải ảnh thẻ về máy (đăng Zalo/FB)</a>
+      </div>
+    </div>
+  </div>
+    
   <div id="toast">Đang tải bản đồ...</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -720,6 +817,10 @@
                   '<a href="' + ggMapLink + '" target="_blank" class="btn-dir">🧭 Chỉ đường</a>' +
                   webBtnHTML +
                 '</div>' +
+                '<div class="popup-extra-actions">' +
+                  '<button class="btn-checkin" onclick="openCheckin(\'' + p.idKey + '\')">🏅 Check-in</button>' +
+                  '<button class="btn-route" onclick="addToRoute(\'' + p.idKey + '\')">➕ Lộ trình</button>' +
+                '</div>' +
                 videoBtnHTML +
                 nearbyHTML +
               '</div>' +
@@ -870,6 +971,179 @@
           appendMsg('⏳ Máy chủ AI đang hơi chậm, bạn thử gửi lại câu hỏi sau vài giây nhé!', 'bot');
         }
       }
+    }
+    // ===== TÍNH NĂNG LỘ TRÌNH NHIỀU ĐIỂM (MULTI-STOP) =====
+    var routePlaces = [];
+    var routeLine = null;
+
+    window.addToRoute = function(idKey) {
+      var p = allPlaces.find(function(x) { return x.idKey === idKey; });
+      if (!p) return;
+      if (routePlaces.some(function(x) { return x.idKey === idKey; })) {
+        showToast('Điểm này đã có trong lộ trình!', 2000);
+        return;
+      }
+      if (routePlaces.length >= 6) {
+        showToast('Tối đa chọn 6 điểm cho 1 lộ trình.', 2500);
+        return;
+      }
+      routePlaces.push(p);
+      updateRouteUI();
+      showToast('Đã thêm "' + p.TenDiaDanh + '" vào lộ trình.', 2000);
+    };
+
+    function updateRouteUI() {
+      var bar = document.getElementById('route-bar');
+      if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+
+      if (routePlaces.length === 0) {
+        bar.classList.remove('show');
+        return;
+      }
+      bar.classList.add('show');
+
+      var coords = routePlaces.map(function(p) { return [p.lat, p.lng]; });
+      var totalKm = 0;
+      for (var i = 1; i < routePlaces.length; i++) {
+        totalKm += calcDistance(routePlaces[i-1].lat, routePlaces[i-1].lng, routePlaces[i].lat, routePlaces[i].lng);
+      }
+
+      if (coords.length >= 2) {
+        routeLine = L.polyline(coords, { color: '#1976d2', weight: 4, dashArray: '8, 8' }).addTo(map);
+        map.fitBounds(routeLine.getBounds(), { padding: [70, 70] });
+      }
+
+      document.getElementById('route-info').innerHTML =
+        'Lộ trình: <b>' + routePlaces.length + ' điểm</b>' +
+        (totalKm > 0 ? ' (~' + totalKm.toFixed(1) + ' km)' : ' (chọn thêm điểm)');
+    }
+
+    function openGoogleMapsRoute() {
+      if (routePlaces.length === 0) return;
+      var dest = routePlaces[routePlaces.length - 1];
+      var url = 'https://www.google.com/maps/dir/?api=1&destination=' + dest.lat + ',' + dest.lng;
+
+      if (routePlaces.length > 1) {
+        var waypoints = routePlaces.slice(0, -1).map(function(p) { return p.lat + ',' + p.lng; }).join('|');
+        url += '&waypoints=' + encodeURIComponent(waypoints);
+      }
+      window.open(url, '_blank');
+    }
+
+    function clearRoute() {
+      routePlaces = [];
+      updateRouteUI();
+      showToast('Đã xóa lộ trình.', 1500);
+    }
+
+    // ===== TÍNH NĂNG CHECK-IN & VẼ THẺ CHỨNG NHẬN ĐIỆN TỬ =====
+    var activeCheckinPlace = null;
+
+    window.openCheckin = function(idKey) {
+      activeCheckinPlace = allPlaces.find(function(x) { return x.idKey === idKey; });
+      if (!activeCheckinPlace) return;
+      document.getElementById('checkin-place-name').innerText = '📍 ' + activeCheckinPlace.TenDiaDanh;
+      document.getElementById('cert-preview').style.display = 'none';
+      document.getElementById('btn-download-cert').style.display = 'none';
+      document.getElementById('checkin-modal').classList.add('open');
+    };
+
+    function closeCheckin() {
+      document.getElementById('checkin-modal').classList.remove('open');
+    }
+
+    function generateCertificate() {
+      var name = document.getElementById('ci-name').value.trim();
+      var unit = document.getElementById('ci-unit').value.trim();
+      if (!name) {
+        showToast('Vui lòng nhập họ và tên của bạn!', 2500);
+        return;
+      }
+
+      var canvas = document.getElementById('cert-canvas');
+      var ctx = canvas.getContext('2d');
+      var W = canvas.width, H = canvas.height;
+
+      // Nền giấy chứng nhận trang trọng
+      var bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#fffdf7');
+      bg.addColorStop(1, '#fff3e0');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Viền đỏ & viền vàng
+      ctx.strokeStyle = '#b71c1c';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(18, 18, W - 36, H - 36);
+      ctx.strokeStyle = '#f9a825';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(32, 32, W - 64, H - 64);
+
+      // Dải tiêu đề trên cùng
+      ctx.fillStyle = '#b71c1c';
+      ctx.fillRect(34, 34, W - 68, 95);
+
+      ctx.fillStyle = '#ffeb3b';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('★  TUỔI TRẺ CÔNG AN TỈNH QUẢNG NGÃI  ★', W / 2, 74);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText('THẺ CHỨNG NHẬN HÀNH TRÌNH VỀ NGUỒN', W / 2, 112);
+
+      // Nội dung chính
+      ctx.fillStyle = '#555555';
+      ctx.font = 'italic 20px Arial';
+      ctx.fillText('Chứng nhận đồng chí / bạn:', W / 2, 190);
+
+      ctx.fillStyle = '#b71c1c';
+      ctx.font = 'bold 42px Arial';
+      ctx.fillText(name.toUpperCase(), W / 2, 245);
+
+      if (unit) {
+        ctx.fillStyle = '#37474f';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText(unit, W / 2, 282);
+      }
+
+      ctx.fillStyle = '#444444';
+      ctx.font = '20px Arial';
+      ctx.fillText('Đã check-in tham quan và tìm hiểu lịch sử tại:', W / 2, 340);
+
+      // Khung tên địa danh
+      ctx.fillStyle = '#ffebee';
+      ctx.fillRect(90, 362, W - 180, 68);
+      ctx.strokeStyle = '#ef9a9a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(90, 362, W - 180, 68);
+
+      ctx.fillStyle = '#c62828';
+      ctx.font = 'bold 26px Arial';
+      ctx.fillText(activeCheckinPlace.TenDiaDanh, W / 2, 405);
+
+      // Ngày giờ & chân trang
+      var now = new Date();
+      var dateStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
+                    ' - Ngày ' + now.toLocaleDateString('vi-VN');
+      ctx.fillStyle = '#666666';
+      ctx.font = '18px Arial';
+      ctx.fillText('Thời gian ghi nhận: ' + dateStr, W / 2, 475);
+
+      ctx.fillStyle = '#888888';
+      ctx.font = 'italic 16px Arial';
+      ctx.fillText('Bản đồ số Địa chỉ đỏ & Du lịch tỉnh Quảng Ngãi', W / 2, 520);
+
+      // Xuất ảnh xem trước & nút tải
+      var imgUrl = canvas.toDataURL('image/png');
+      var preview = document.getElementById('cert-preview');
+      preview.src = imgUrl;
+      preview.style.display = 'block';
+
+      var dlBtn = document.getElementById('btn-download-cert');
+      dlBtn.href = imgUrl;
+      dlBtn.download = 'CheckIn-' + activeCheckinPlace.TenDiaDanh.replace(/\s+/g, '-') + '.png';
+      dlBtn.style.display = 'block';
     }
   </script>
 </body>
