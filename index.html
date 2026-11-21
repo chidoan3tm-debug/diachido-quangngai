@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
-  
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html { width: 100%; height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -119,6 +119,11 @@
       font-size: 11.5px; color: #555; line-height: 1.4;
     }
     .sidebar-footer b { color: #b71c1c; }
+    .contact-box {
+      margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d1d5db;
+      font-size: 11.5px; color: #374151;
+    }
+    .contact-box a { color: #1565c0; text-decoration: none; font-weight: 600; }
 
     /* Nút nổi góc dưới phải */
     .fab-group {
@@ -274,6 +279,7 @@
       color: #00695c; font-weight: 700; font-size: 11px;
       border-radius: 6px; padding: 2px 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
+
     /* Nút Check-in & Lộ trình trong Popup */
     .popup-extra-actions { display: flex; gap: 6px; margin-top: 6px; }
     .btn-checkin, .btn-route {
@@ -336,11 +342,6 @@
       background: #2e7d32; color: #fff; text-decoration: none; border-radius: 8px;
       font-size: 13.5px; font-weight: 700;
     }
-    .contact-box {
-      margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d1d5db;
-      font-size: 11.5px; color: #374151;
-    }
-    .contact-box a { color: #1565c0; text-decoration: none; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -384,9 +385,10 @@
       Cán bộ Phòng Tham mưu, Công an tỉnh Quảng Ngãi
       <div class="contact-box">
         📩 Đơn vị cần bổ sung địa điểm xin liên hệ:<br>
-        📞 SĐT/Zalo: <a href="tel:0912141316"></a>
+        📞 SĐT/Zalo: <a href="tel:0912141316">0912.141.316</a>
       </div>
     </div>
+  </div>
 
   <!-- Bản đồ -->
   <div id="map"></div>
@@ -424,7 +426,8 @@
       <button class="chat-send-btn" onclick="sendChat()">➤</button>
     </div>
   </div>
-<!-- Thanh lộ trình nhiều điểm -->
+
+  <!-- Thanh lộ trình nhiều điểm -->
   <div id="route-bar" class="route-bar">
     <div class="route-info" id="route-info">Đã chọn <b>0</b> điểm</div>
     <button class="btn-go-route" onclick="openGoogleMapsRoute()">🧭 Dẫn đường</button>
@@ -451,7 +454,7 @@
       </div>
     </div>
   </div>
-    
+
   <div id="toast">Đang tải bản đồ...</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -767,7 +770,6 @@
           var item = data[i];
           if (!item.TenDiaDanh) continue;
 
-          // Nếu có cột TrangThai, bỏ qua những dòng ghi "Chờ" hoặc "Ẩn"
           var status = String(item.TrangThai || '').toLowerCase().trim();
           if (status && (status.indexOf('chờ') !== -1 || status.indexOf('cho') !== -1 || status.indexOf('ẩn') !== -1 || status.indexOf('an') !== -1)) {
             continue;
@@ -845,7 +847,7 @@
         }
         showToast('Đã tải ' + allPlaces.length + ' địa điểm.', 2500);
       },
-      error: function(err) {
+      error: function() {
         showToast('Lỗi tải dữ liệu Google Sheets.', 5000);
       }
     });
@@ -972,6 +974,7 @@
         }
       }
     }
+
     // ===== TÍNH NĂNG LỘ TRÌNH NHIỀU ĐIỂM (MULTI-STOP) =====
     var routePlaces = [];
     var routeLine = null;
