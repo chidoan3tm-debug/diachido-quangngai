@@ -1414,7 +1414,7 @@
       }
     }
     // ===== TÍNH NĂNG HỖ TRỢ ANTT (CÔNG AN XÃ/PHƯỜNG/ĐẶC KHU) =====
-    const SHEET_CAX_URL = 'DAN_LINK_TSV_TAB_CONGANXA_VAO_DAY';
+    const SHEET_CAX_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=1178090317&single=true&output=tsv';
     var allCaUnits = [];
     var caLayerGroup = L.layerGroup();
 
@@ -1424,7 +1424,7 @@
       iconSize: [22, 22], iconAnchor: [11, 11]
     });
 
-    if (SHEET_CAX_URL && SHEET_CAX_URL.indexOf('https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=1178090317&single=true&output=tsv') !== 0) {
+    if (SHEET_CAX_URL && SHEET_CAX_URL.indexOf('DAN_LINK') !== 0) {
       Papa.parse(SHEET_CAX_URL, {
         download: true, header: true, delimiter: '\t', skipEmptyLines: true,
         complete: function(results) {
