@@ -342,6 +342,39 @@
       background: #2e7d32; color: #fff; text-decoration: none; border-radius: 8px;
       font-size: 13.5px; font-weight: 700;
     }
+    /* Nút & Giao diện Hỗ trợ ANTT */
+    .fab-btn.sos-btn { background: #0d47a1; color: #ffeb3b; font-size: 20px; border: 2px solid #ffeb3b; }
+    .ca-dot {
+      width: 22px; height: 22px; background: #0d47a1; color: #ffeb3b;
+      border: 2px solid #fff; border-radius: 50%; font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(13,71,161,0.6);
+    }
+    .sos-grid { display: flex; gap: 6px; margin-bottom: 12px; }
+    .sos-hotline {
+      flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px;
+      text-decoration: none; font-weight: 700; font-size: 12.5px; color: #fff;
+    }
+    .ca-item {
+      border: 1px solid #bbdefb; background: #f8fbff; border-radius: 10px;
+      padding: 10px 12px; margin-bottom: 8px;
+    }
+    .ca-item h4 { color: #0d47a1; font-size: 13.5px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .ca-item p { color: #555; font-size: 12px; margin-bottom: 8px; }
+    .ca-actions { display: flex; gap: 6px; }
+    .btn-call-ca {
+      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
+      background: #2e7d32; color: #fff !important; text-decoration: none; font-weight: 700; font-size: 12px;
+    }
+    .btn-map-ca {
+      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
+      background: #1565c0; color: #fff !important; text-decoration: none; font-weight: 600; font-size: 12px;
+    }
+    .ca-toggle-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #e3f2fd; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px;
+      font-size: 12.5px; font-weight: 600; color: #0d47a1;
+    }
   </style>
 </head>
 <body>
@@ -403,6 +436,7 @@
     <button class="fab-btn chat-btn" title="Trợ lý AI gợi ý lịch trình" onclick="toggleChat()">💬</button>
     <button class="fab-btn" id="btn-layer" title="Đổi bản đồ Vệ tinh / Đường phố" onclick="toggleLayer()">🛰️</button>
     <button class="fab-btn" id="btn-locate" title="Vị trí của tôi" onclick="locateUser()">🎯</button>
+    <button class="fab-btn sos-btn" title="Hỗ trợ ANTT & Công an gần nhất" onclick="openAnttModal()">🛡️</button>
   </div>
 
   <!-- Khung Chatbot AI -->
@@ -459,7 +493,29 @@
       </div>
     </div>
   </div>
-
+  <!-- Khung Hỗ trợ ANTT & Công an xã/phường/đặc khu -->
+  <div id="antt-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-head" style="background: linear-gradient(135deg, #0d47a1, #1976d2);">
+        <h3>🛡️ Hỗ trợ ANTT & Khẩn cấp</h3>
+        <button class="close-btn" onclick="closeAnttModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="sos-grid">
+          <a href="tel:113" class="sos-hotline" style="background:#c62828;">🚨 113 Cảnh sát</a>
+          <a href="tel:114" class="sos-hotline" style="background:#e65100;">🚒 114 PCCC</a>
+          <a href="tel:115" class="sos-hotline" style="background:#2e7d32;">🚑 115 Cấp cứu</a>
+        </div>
+        <div class="ca-toggle-row">
+          <span>Hiện trụ sở Công an trên bản đồ</span>
+          <input type="checkbox" id="chk-show-ca" onchange="toggleCaLayer()" style="width:18px;height:18px;margin:0;cursor:pointer;">
+        </div>
+        <input type="text" id="ca-search" placeholder="🔍 Tìm Công an xã, phường, đặc khu..." oninput="renderCaList()">
+        <div id="ca-gps-note" style="font-size:11.5px;color:#1565c0;margin-bottom:8px;font-weight:600;"></div>
+        <div id="ca-list"></div>
+      </div>
+    </div>
+  </div>
   <div id="toast">Đang tải bản đồ...</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -1356,6 +1412,129 @@
         // Nếu ảnh Drive bị chặn quyền CORS khi xuất PNG -> tự vẽ lại bản không có ảnh mờ để vẫn tải được thẻ
         drawCertificateCanvas(name, unit, stt, null);
       }
+    }
+    // ===== TÍNH NĂNG HỖ TRỢ ANTT (CÔNG AN XÃ/PHƯỜNG/ĐẶC KHU) =====
+    const SHEET_CAX_URL = 'DAN_LINK_TSV_TAB_CONGANXA_VAO_DAY';
+    var allCaUnits = [];
+    var caLayerGroup = L.layerGroup();
+
+    var caIcon = L.divIcon({
+      className: 'custom-div-icon',
+      html: '<div class="ca-dot">🛡️</div>',
+      iconSize: [22, 22], iconAnchor: [11, 11]
+    });
+
+    if (SHEET_CAX_URL && SHEET_CAX_URL.indexOf('https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=1178090317&single=true&output=tsv') !== 0) {
+      Papa.parse(SHEET_CAX_URL, {
+        download: true, header: true, delimiter: '\t', skipEmptyLines: true,
+        complete: function(results) {
+          var data = results.data || [];
+          allCaUnits = [];
+          for (var i = 0; i < data.length; i++) {
+            var r = data[i];
+            if (!r.TenDonVi) continue;
+            var lat = parseFloat(String(r.ViDo || '').replace(',', '.'));
+            var lng = parseFloat(String(r.KinhDo || '').replace(',', '.'));
+            if (!isNaN(lat) && !isNaN(lng)) {
+              r.lat = lat; r.lng = lng;
+              r.cleanPhone = String(r.SDT_TrucBan || '').replace(/[^0-9+]/g, '');
+              allCaUnits.push(r);
+
+              var ggLink = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
+              var callBtn = r.cleanPhone
+                ? '<a href="tel:' + r.cleanPhone + '" class="btn-call-ca">📞 ' + r.SDT_TrucBan + '</a>' : '';
+              var pop =
+                '<div class="popup-body">' +
+                  '<h3 style="color:#0d47a1;margin-bottom:4px;">🛡️ ' + r.TenDonVi + '</h3>' +
+                  '<p style="margin-bottom:8px;">' + (r.DiaChi || 'Trụ sở Công an cơ sở') + '</p>' +
+                  '<div class="ca-actions">' + callBtn +
+                    '<a href="' + ggLink + '" target="_blank" class="btn-map-ca">🧭 Chỉ đường</a>' +
+                  '</div>' +
+                '</div>';
+              L.marker([lat, lng], { icon: caIcon }).bindPopup(pop).addTo(caLayerGroup);
+            }
+          }
+        }
+      });
+    }
+
+    function toggleCaLayer() {
+      var checked = document.getElementById('chk-show-ca').checked;
+      if (checked) {
+        caLayerGroup.addTo(map);
+        showToast('Đã bật hiển thị ' + allCaUnits.length + ' trụ sở Công an.', 2000);
+      } else {
+        map.removeLayer(caLayerGroup);
+        showToast('Đã ẩn lớp trụ sở Công an.', 1500);
+      }
+    }
+
+    function openAnttModal() {
+      document.getElementById('antt-modal').classList.add('open');
+      var note = document.getElementById('ca-gps-note');
+      if (userCoords) {
+        sortCaByCoords(userCoords.lat, userCoords.lng);
+        note.innerText = '📍 Đang xếp theo khoảng cách gần vị trí của bạn nhất:';
+        renderCaList();
+      } else if (navigator.geolocation) {
+        note.innerText = '🛰️ Đang xác định vị trí để tìm trụ sở Công an gần nhất...';
+        renderCaList();
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          sortCaByCoords(userCoords.lat, userCoords.lng);
+          note.innerText = '📍 Đang xếp theo khoảng cách gần vị trí của bạn nhất:';
+          renderCaList();
+        }, function() {
+          note.innerText = '💡 Bật GPS hoặc gõ tên xã/phường vào ô tìm kiếm bên trên.';
+        });
+      } else {
+        renderCaList();
+      }
+    }
+
+    function closeAnttModal() {
+      document.getElementById('antt-modal').classList.remove('open');
+    }
+
+    function sortCaByCoords(uLat, uLng) {
+      for (var i = 0; i < allCaUnits.length; i++) {
+        allCaUnits[i].dist = calcDistance(uLat, uLng, allCaUnits[i].lat, allCaUnits[i].lng);
+      }
+      allCaUnits.sort(function(a, b) { return a.dist - b.dist; });
+    }
+
+    function renderCaList() {
+      var box = document.getElementById('ca-list');
+      var kw = (document.getElementById('ca-search').value || '').toLowerCase().trim();
+      var list = allCaUnits.filter(function(u) {
+        return !kw || (u.TenDonVi || '').toLowerCase().indexOf(kw) !== -1 || (u.DiaChi || '').toLowerCase().indexOf(kw) !== -1;
+      });
+
+      // Nếu không tìm kiếm, chỉ hiện top 5 gần nhất cho gọn màn hình
+      if (!kw) list = list.slice(0, 5);
+
+      if (list.length === 0) {
+        box.innerHTML = '<p style="text-align:center;color:#888;font-size:12.5px;padding:12px;">Chưa có dữ liệu hoặc không tìm thấy đơn vị.</p>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < list.length; i++) {
+        var u = list[i];
+        var distBadge = (typeof u.dist === 'number') ? '<span>~' + u.dist.toFixed(1) + ' km</span>' : '';
+        var ggLink = 'https://www.google.com/maps/dir/?api=1&destination=' + u.lat + ',' + u.lng;
+        var callBtn = u.cleanPhone
+          ? '<a href="tel:' + u.cleanPhone + '" class="btn-call-ca">📞 Gọi: ' + u.SDT_TrucBan + '</a>' : '';
+        html +=
+          '<div class="ca-item">' +
+            '<h4><span>🛡️ ' + u.TenDonVi + '</span>' + distBadge + '</h4>' +
+            '<p>' + (u.DiaChi || '') + '</p>' +
+            '<div class="ca-actions">' + callBtn +
+              '<a href="' + ggLink + '" target="_blank" class="btn-map-ca">🧭 Chỉ đường</a>' +
+            '</div>' +
+          '</div>';
+      }
+      box.innerHTML = html;
     }
   </script>
 </body>
