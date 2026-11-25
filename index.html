@@ -613,6 +613,12 @@
       return cleanUrl;
     }
 
+    function extractDriveFileId(url) {
+      if (!url) return '';
+      var match = String(url).trim().match(/\/d\/([a-zA-Z0-9_-]+)/) || String(url).trim().match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      return (match && match[1]) ? match[1] : '';
+    }
+
     function speakTextFallback(text) {
       if (!('speechSynthesis' in window)) {
         showToast('Trình duyệt không hỗ trợ đọc văn bản tự động.', 3000);
@@ -639,17 +645,57 @@
       if (btn) { btn.classList.add('playing'); btn.innerText = '⏹️ Dừng'; }
 
       var textToRead = (place.TenDiaDanh || '') + '. ' + (place.TomTat || 'Chưa có nội dung thuyết minh.');
-      var audioSrc = getDirectAudioUrl(place.cleanAudio);
+      var rawAudio = String(place.cleanAudio || place.LinkAudio || '').trim();
 
-      if (audioSrc) {
-        currentAudio = new Audio(audioSrc);
+      if (!rawAudio) {
+        speakTextFallback(textToRead);
+        return;
+      }
+
+      var driveId = extractDriveFileId(rawAudio);
+      var gasUrl = (typeof GAS_CHECKIN_URL !== 'undefined') ? GAS_CHECKIN_URL : '';
+
+      // Nếu là link Google Drive -> tải qua trạm GAS để không bị chặn trên iPhone/Chrome
+      if (driveId && gasUrl && gasUrl.indexOf('https://script.google.com') === 0) {
+        if (btn) btn.innerText = '⏳ Đang tải...';
+
+        // Mở khóa quyền phát âm thanh ngay khi chạm trên Safari iPhone
+        var audioObj = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        currentAudio = audioObj;
+        audioObj.play().catch(function() {});
+
+        fetch(gasUrl + '?action=audio&id=' + encodeURIComponent(driveId))
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (playingKey !== idKey) return;
+            if (!res.ok || !res.b64) throw new Error('No audio data');
+
+            var byteChars = atob(res.b64);
+            var byteNums = new Array(byteChars.length);
+            for (var i = 0; i < byteChars.length; i++) {
+              byteNums[i] = byteChars.charCodeAt(i);
+            }
+            var blob = new Blob([new Uint8Array(byteNums)], { type: res.mime || 'audio/mpeg' });
+            var blobUrl = URL.createObjectURL(blob);
+
+            if (btn) btn.innerText = '⏹️ Dừng';
+            audioObj.src = blobUrl;
+            audioObj.onended = function() { URL.revokeObjectURL(blobUrl); stopAllVoice(); };
+            audioObj.onerror = function() { URL.revokeObjectURL(blobUrl); speakTextFallback(textToRead); };
+            audioObj.play().catch(function() { speakTextFallback(textToRead); });
+          })
+          .catch(function() {
+            if (playingKey === idKey) speakTextFallback(textToRead);
+          });
+      } else {
+        // Link âm thanh trực tiếp bên ngoài (không phải Google Drive)
+        currentAudio = new Audio(rawAudio);
         currentAudio.onended = function() { stopAllVoice(); };
         currentAudio.onerror = function() { speakTextFallback(textToRead); };
         currentAudio.play().catch(function() { speakTextFallback(textToRead); });
-      } else {
-        speakTextFallback(textToRead);
       }
     };
+    
     function calcDistance(lat1, lon1, lat2, lon2) {
       var R = 6371;
       var dLat = (lat2 - lat1) * Math.PI / 180;
