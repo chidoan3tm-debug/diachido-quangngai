@@ -849,17 +849,17 @@
 
     // ===== KHỞI TẠO BẢN ĐỒ, KHÓA KHUNG NHÌN & BO VIỀN QUẢNG NGÃI =====
     var qnBounds = L.latLngBounds(
-      [13.70, 107.00],
-      [15.80, 109.60]
+      [13.40, 107.00],
+      [15.85, 109.55]
     );
 
     map = L.map('map', {
       zoomControl: false,
-      minZoom: 8,
+      minZoom: 7,
       maxZoom: 20,
       maxBounds: qnBounds,
       maxBoundsViscosity: 0.85
-    }).setView([15.1214, 108.8044], 10);
+    }).setView([14.70, 108.25], 8);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     map.on('popupclose', function() { stopAllVoice(); });
