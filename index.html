@@ -1536,6 +1536,117 @@
       }
       box.innerHTML = html;
     }
+    function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+
+    // Tạo hoặc mở thư mục lưu tệp đính kèm trên Google Drive
+    var folders = DriveApp.getFoldersByName("DuLieu_BanDoSo_QuangNgai");
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("DuLieu_BanDoSo_QuangNgai");
+
+    // 1. Lưu ảnh thực tế (nếu có)
+    var driveImgUrl = "";
+    if (data.imageBase64 && data.imageName) {
+      var imgBlob = Utilities.newBlob(
+        Utilities.base64Decode(data.imageBase64),
+        data.imageType || "image/jpeg",
+        data.imageName
+      );
+      var imgFile = folder.createFile(imgBlob);
+      imgFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      driveImgUrl = "https://drive.google.com/file/d/" + imgFile.getId() + "/view?usp=sharing";
+    }
+
+    // 2. Lưu file âm thanh thuyết minh (nếu có)
+    var driveAudioUrl = "";
+    if (data.audioBase64 && data.audioName) {
+      var audioBlob = Utilities.newBlob(
+        Utilities.base64Decode(data.audioBase64),
+        data.audioType || "audio/mpeg",
+        data.audioName
+      );
+      var audioFile = folder.createFile(audioBlob);
+      audioFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      driveAudioUrl = "https://drive.google.com/file/d/" + audioFile.getId() + "/view?usp=sharing";
+    }
+
+    // 3. Xử lý cập nhật Trụ sở Công an xã/phường/đặc khu
+    if (data.formType === "congan") {
+      var caSheet = ss.getSheetByName("CongAnXa");
+      if (!caSheet) {
+        caSheet = ss.insertSheet("CongAnXa");
+        caSheet.appendRow(["TenDonVi", "DiaChi", "ViDo", "KinhDo", "SDT_TrucBan", "NguoiGui"]);
+      }
+      var rows = caSheet.getDataRange().getValues();
+      var updated = false;
+      for (var i = 1; i < rows.length; i++) {
+        if (String(rows[i][0]).trim().toLowerCase() === String(data.TenDonVi).trim().toLowerCase()) {
+          caSheet.getRange(i + 1, 2, 1, 5).setValues([[
+            data.DiaChi, data.ViDo, data.KinhDo, data.SDT_TrucBan, data.NguoiGui
+          ]]);
+          updated = true;
+          break;
+        }
+      }
+      if (!updated) {
+        caSheet.appendRow([data.TenDonVi, data.DiaChi, data.ViDo, data.KinhDo, data.SDT_TrucBan, data.NguoiGui]);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: true,
+        msg: updated ? "Đã cập nhật lại thông tin trụ sở đơn vị!" : "Đã thêm mới trụ sở Công an lên hệ thống!"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 4. Xử lý đề xuất Địa chỉ đỏ / Điểm du lịch (ghi vào sheet đầu tiên)
+    var mainSheet = ss.getSheets()[0];
+    var lastCol = mainSheet.getLastColumn();
+    var headers = lastCol > 0 ? mainSheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+
+    var requiredCols = ["LinkAudio", "LinkWeb", "TrangThai", "NguoiGui"];
+    for (var c = 0; c < requiredCols.length; c++) {
+      if (headers.indexOf(requiredCols[c]) === -1) {
+        headers.push(requiredCols[c]);
+        mainSheet.getRange(1, headers.length).setValue(requiredCols[c]);
+      }
+    }
+
+    var record = {
+      TenDiaDanh: data.TenDiaDanh || "",
+      PhanLoai:   data.PhanLoai || "diachido",
+      TomTat:     data.TomTat || "",
+      ViDo:       data.ViDo || "",
+      KinhDo:     data.KinhDo || "",
+      LinkAnh:    driveImgUrl || "",
+      LinkAudio:  driveAudioUrl || data.LinkAudio || "",
+      LinkVideo:  data.LinkVideo || "",
+      LinkWeb:    data.LinkWeb || "",
+      TrangThai:  "Chờ duyệt",
+      NguoiGui:   data.NguoiGui || ""
+    };
+
+    var newRow = headers.map(function(h) {
+      var key = String(h).trim();
+      return record[key] !== undefined ? record[key] : "";
+    });
+    mainSheet.appendRow(newRow);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true,
+      msg: "Đã gửi đề xuất thành công! Dữ liệu đang ở trạng thái 'Chờ duyệt' để Phòng Tham mưu kiểm tra trước khi hiển thị."
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      msg: "Lỗi hệ thống: " + err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
   </script>
 </body>
 </html>
