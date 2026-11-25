@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đóng góp dữ liệu - Bản đồ số Quảng Ngãi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f3f4f6; color: #1f2937; padding: 14px; line-height: 1.45;
+    }
+    .container {
+      max-width: 600px; margin: 0 auto; background: #fff;
+      border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #b71c1c, #d32f2f);
+      color: #fff; padding: 18px 16px; text-align: center;
+    }
+    .header h1 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .header p { font-size: 12.5px; opacity: 0.92; }
+    .back-link {
+      display: inline-block; margin-top: 10px; padding: 5px 12px;
+      background: rgba(255,255,255,0.2); color: #fff; text-decoration: none;
+      border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .tabs { display: flex; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+    .tab {
+      flex: 1; padding: 12px 8px; border: none; background: none;
+      font-size: 13px; font-weight: 700; color: #6b7280; cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tab.active-red { color: #b71c1c; border-bottom-color: #b71c1c; background: #fff; }
+    .tab.active-blue { color: #0d47a1; border-bottom-color: #0d47a1; background: #fff; }
+
+    .form-body { padding: 18px 16px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    label span { color: #dc2626; }
+    input[type="text"], select, textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #b71c1c; }
+    textarea { resize: vertical; min-height: 90px; }
+
+    .media-box {
+      background: #fafafa; border: 1px solid #e5e7eb; border-radius: 10px;
+      padding: 12px; margin-bottom: 14px;
+    }
+    .media-box-title {
+      font-size: 12.5px; font-weight: 700; color: #b71c1c; margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+
+    .gps-box {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+      padding: 12px; margin-bottom: 14px;
+    }
+    .gps-btn {
+      width: 100%; padding: 9px; background: #1d4ed8; color: #fff;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; margin-bottom: 8px;
+    }
+    .coord-row { display: flex; gap: 8px; margin-top: 8px; }
+    .coord-row div { flex: 1; }
+    .hint { font-size: 11.5px; color: #6b7280; margin-top: 4px; }
+
+    .submit-btn {
+      width: 100%; padding: 12px; background: #c62828; color: #fff;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 6px;
+    }
+    .submit-btn.blue { background: #0d47a1; }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .alert {
+      padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 14px;
+      display: none; font-weight: 600;
+    }
+    .alert.success { display: block; background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .alert.error { display: block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .footer {
+      text-align: center; padding: 12px; font-size: 11.5px; color: #6b7280;
+      background: #f9fafb; border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header" id="page-header">
+      <h1>CỔNG CẬP NHẬT DỮ LIỆU BẢN ĐỒ SỐ</h1>
+      <p>Dành cho Đoàn Thanh niên Công an các xã, phường, đặc khu tỉnh Quảng Ngãi</p>
+      <a href="/" class="back-link">← Quay lại Bản đồ số</a>
+    </div>
+
+    <div class="tabs">
+      <button id="btn-tab-place" class="tab active-red" onclick="switchForm('place')">📍 Địa chỉ đỏ / Du lịch</button>
+      <button id="btn-tab-ca" class="tab" onclick="switchForm('congan')">🛡️ Trụ sở Công an</button>
+    </div>
+
+    <div class="form-body">
+      <!-- Thông tin chung người gửi -->
+      <div class="form-group">
+        <label>Cán bộ / Đơn vị gửi thông tin <span>*</span></label>
+        <input type="text" id="nguoi-gui" placeholder="Ví dụ: Thượng úy Nguyễn Văn A - Bí thư Chi đoàn CA xã...">
+      </div>
+
+      <!-- FORM 1: ĐỊA CHỈ ĐỎ / DU LỊCH -->
+      <div id="section-place">
+        <div class="form-group">
+          <label>Phân loại địa điểm <span>*</span></label>
+          <select id="phan-loai">
+            <option value="diachido">🔴 Địa chỉ đỏ / Di tích lịch sử - văn hóa</option>
+            <option value="dulich">🟢 Điểm du lịch / Danh lam thắng cảnh</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tên địa danh / Di tích <span>*</span></label>
+          <input type="text" id="ten-dia-danh" placeholder="Ví dụ: Khu chứng tích Sơn Mỹ">
+        </div>
+        <div class="form-group">
+          <label>Tóm tắt lịch sử / Giới thiệu nổi bật <span>*</span></label>
+          <textarea id="tom-tat" placeholder="Nhập thông tin ngắn gọn, súc tích (dùng làm nội dung hiển thị và đọc thuyết minh tự động nếu không có file ghi âm)..."></textarea>
+        </div>
+
+        <div class="media-box">
+          <div class="media-box-title">📎 Tư liệu đa phương tiện (Ảnh, Voice, Video, Web)</div>
+          
+          <div class="form-group">
+            <label>1. Hình ảnh thực tế tại địa điểm</label>
+            <input type="file" id="file-anh" accept="image/*">
+            <div class="hint">Chọn ảnh từ điện thoại, hệ thống tự nén nhẹ và lưu lên kho tỉnh.</div>
+          </div>
+
+          <div class="form-group">
+            <label>2. File ghi âm / Link giọng đọc thuyết minh (nếu có)</label>
+            <input type="file" id="file-audio" accept="audio/*" style="margin-bottom:6px;">
+            <input type="text" id="link-audio" placeholder="Hoặc dán link file âm thanh Google Drive vào đây...">
+            <div class="hint">Hỗ trợ tải trực tiếp file MP3/M4A dưới 10MB (nếu bỏ trống, bản đồ tự đọc văn bản tóm tắt).</div>
+          </div>
+
+          <div class="form-group">
+            <label>3. Link Video giới thiệu / Ảnh 360° (nếu có)</label>
+            <input type="text" id="link-video" placeholder="Dán link YouTube, Facebook hoặc Google Drive...">
+          </div>
+
+          <div class="form-group" style="margin-bottom:0;">
+            <label>4. Link trang thông tin / Fanpage / Liên hệ (nếu có)</label>
+            <input type="text" id="link-web" placeholder="Dán link bài viết Cổng TTĐT, Fanpage di tích hoặc trang đặt vé...">
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM 2: TRỤ SỞ CÔNG AN XÃ/PHƯỜNG/ĐẶC KHU -->
+      <div id="section-congan" style="display:none;">
+        <div class="form-group">
+          <label>Tên đơn vị Công an <span>*</span></label>
+          <input type="text" id="ten-don-vi" placeholder="Ví dụ: Công an đặc khu Lý Sơn / Công an phường Cẩm Thành">
+        </div>
+        <div class="form-group">
+          <label>Địa chỉ trụ sở <span>*</span></label>
+          <input type="text" id="dia-chi-ca" placeholder="Số nhà, đường, thôn/tổ dân phố, xã/phường...">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại Trực ban đơn vị <span>*</span></label>
+          <input type="text" id="sdt-truc-ban" placeholder="Ví dụ: 0255.3867.xxx">
+        </div>
+      </div>
+
+      <!-- KHUNG TỌA ĐỘ DÙNG CHUNG -->
+      <div class="gps-box">
+        <label style="color:#1e3a8a;">Tọa độ vị trí trên bản đồ <span>*</span></label>
+        <button type="button" class="gps-btn" onclick="getCurrentGPS()">📡 Lấy tọa độ GPS ngay tại chỗ đứng</button>
+        <input type="text" id="paste-coord" placeholder="Hoặc dán tọa độ / link Google Maps vào đây để tự tách..." oninput="parseSmartCoord(this.value)">
+        <div class="coord-row">
+          <div>
+            <input type="text" id="vi-do" placeholder="Vĩ độ (15.xxxx)">
+          </div>
+          <div>
+            <input type="text" id="kinh-do" placeholder="Kinh độ (108.xxxx)">
+          </div>
+        </div>
+        <div class="hint">Mẹo: Mở Google Maps -> nhấn giữ vào điểm cần lấy -> chạm vào dãy số tọa độ hiện ra để copy và dán vào ô trên.</div>
+      </div>
+
+      <button id="btn-submit" class="submit-btn" onclick="submitForm()">📤 Gửi dữ liệu về Phòng Tham mưu</button>
+      <div id="status-box" class="alert"></div>
+    </div>
+
+    <div class="footer">
+      Bản đồ số Địa chỉ đỏ & Du lịch tỉnh Quảng Ngãi • Tác giả: <b>Mai Tấn Duy</b>
+    </div>
+  </div>
+
+  <script>
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzbBNl9mJUFBa1RA_vFJwsuot52lS5R3sHopgnSug5ibUt57WfylqDNl_-D-cypE9xU8w/exec';
+    var currentForm = 'place';
+
+    function switchForm(type) {
+      currentForm = type;
+      var header = document.getElementById('page-header');
+      var btnSubmit = document.getElementById('btn-submit');
+      document.getElementById('status-box').className = 'alert';
+
+      if (type === 'place') {
+        document.getElementById('btn-tab-place').className = 'tab active-red';
+        document.getElementById('btn-tab-ca').className = 'tab';
+        document.getElementById('section-place').style.display = 'block';
+        document.getElementById('section-congan').style.display = 'none';
+        header.style.background = 'linear-gradient(135deg, #b71c1c, #d32f2f)';
+        btnSubmit.className = 'submit-btn';
+      } else {
+        document.getElementById('btn-tab-place').className = 'tab';
+        document.getElementById('btn-tab-ca').className = 'tab active-blue';
+        document.getElementById('section-place').style.display = 'none';
+        document.getElementById('section-congan').style.display = 'block';
+        header.style.background = 'linear-gradient(135deg, #0d47a1, #1976d2)';
+        btnSubmit.className = 'submit-btn blue';
+      }
+    }
+
+    function getCurrentGPS() {
+      if (!navigator.geolocation) {
+        alert('Trình duyệt không hỗ trợ GPS.');
+        return;
+      }
+      var btn = document.querySelector('.gps-btn');
+      btn.innerText = '⏳ Đang dò vệ tinh GPS...';
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        document.getElementById('vi-do').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('kinh-do').value = pos.coords.longitude.toFixed(6);
+        btn.innerText = '✅ Đã lấy tọa độ thành công!';
+      }, function() {
+        btn.innerText = '📡 Lấy tọa độ GPS ngay tại chỗ đứng';
+        alert('Không lấy được GPS. Vui lòng bật định vị trên điện thoại hoặc copy tọa độ từ Google Maps.');
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
+    function parseSmartCoord(val) {
+      var match = String(val).match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+      if (match) {
+        document.getElementById('vi-do').value = match[1];
+        document.getElementById('kinh-do').value = match[2];
+      }
+    }
+
+    function compressImage(file) {
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxW = 1200;
+            var scale = img.width > maxW ? maxW / img.width : 1;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve({
+              base64: dataUrl.split(',')[1],
+              name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+              type: "image/jpeg"
+            });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function readAudioFile(file) {
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          resolve({
+            base64: e.target.result.split(',')[1],
+            name: file.name,
+            type: file.type || "audio/mpeg"
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitForm() {
+      var statusBox = document.getElementById('status-box');
+      statusBox.className = 'alert';
+
+      var nguoiGui = document.getElementById('nguoi-gui').value.trim();
+      var viDo = document.getElementById('vi-do').value.trim().replace(',', '.');
+      var kinhDo = document.getElementById('kinh-do').value.trim().replace(',', '.');
+
+      if (!nguoiGui || !viDo || !kinhDo || isNaN(parseFloat(viDo)) || isNaN(parseFloat(kinhDo))) {
+        statusBox.className = 'alert error';
+        statusBox.innerText = '❌ Vui lòng nhập đầy đủ Tên cán bộ/đơn vị gửi và Tọa độ hợp lệ!';
+        return;
+      }
+
+      var payload = {
+        formType: currentForm,
+        NguoiGui: nguoiGui,
+        ViDo: viDo,
+        KinhDo: kinhDo
+      };
+
+      if (currentForm === 'place') {
+        payload.PhanLoai = document.getElementById('phan-loai').value;
+        payload.TenDiaDanh = document.getElementById('ten-dia-danh').value.trim();
+        payload.TomTat = document.getElementById('tom-tat').value.trim();
+        payload.LinkAudio = document.getElementById('link-audio').value.trim();
+        payload.LinkVideo = document.getElementById('link-video').value.trim();
+        payload.LinkWeb = document.getElementById('link-web').value.trim();
+
+        if (!payload.TenDiaDanh || !payload.TomTat) {
+          statusBox.className = 'alert error';
+          statusBox.innerText = '❌ Vui lòng nhập Tên địa danh và Nội dung tóm tắt!';
+          return;
+        }
+
+        var audioInput = document.getElementById('file-audio');
+        if (audioInput.files && audioInput.files[0] && audioInput.files[0].size > 10 * 1024 * 1024) {
+          statusBox.className = 'alert error';
+          statusBox.innerText = '❌ File âm thanh vượt quá 10MB. Vui lòng tải lên Google Drive rồi dán link vào ô bên dưới!';
+          return;
+        }
+      } else {
+        payload.TenDonVi = document.getElementById('ten-don-vi').value.trim();
+        payload.DiaChi = document.getElementById('dia-chi-ca').value.trim();
+        payload.SDT_TrucBan = document.getElementById('sdt-truc-ban').value.trim();
+
+        if (!payload.TenDonVi || !payload.DiaChi || !payload.SDT_TrucBan) {
+          statusBox.className = 'alert error';
+          statusBox.innerText = '❌ Vui lòng nhập đầy đủ Tên đơn vị, Địa chỉ và SĐT Trực ban!';
+          return;
+        }
+      }
+
+      var btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.innerText = '⏳ Đang tải tư liệu và gửi dữ liệu...';
+
+      try {
+        if (currentForm === 'place') {
+          var fileInput = document.getElementById('file-anh');
+          if (fileInput.files && fileInput.files[0]) {
+            var compressed = await compressImage(fileInput.files[0]);
+            payload.imageBase64 = compressed.base64;
+            payload.imageName = compressed.name;
+            payload.imageType = compressed.type;
+          }
+
+          var audioFileInput = document.getElementById('file-audio');
+          if (audioFileInput.files && audioFileInput.files[0]) {
+            var audioData = await readAudioFile(audioFileInput.files[0]);
+            payload.audioBase64 = audioData.base64;
+            payload.audioName = audioData.name;
+            payload.audioType = audioData.type;
+          }
+        }
+
+        var res = await fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        var result = await res.json();
+
+        if (result.ok) {
+          statusBox.className = 'alert success';
+          statusBox.innerText = '✅ ' + result.msg;
+          document.getElementById('ten-dia-danh').value = '';
+          document.getElementById('tom-tat').value = '';
+          document.getElementById('file-anh').value = '';
+          document.getElementById('file-audio').value = '';
+          document.getElementById('link-audio').value = '';
+          document.getElementById('link-video').value = '';
+          document.getElementById('link-web').value = '';
+          document.getElementById('ten-don-vi').value = '';
+          document.getElementById('dia-chi-ca').value = '';
+          document.getElementById('sdt-truc-ban').value = '';
+          document.getElementById('paste-coord').value = '';
+          document.getElementById('vi-do').value = '';
+          document.getElementById('kinh-do').value = '';
+        } else {
+          statusBox.className = 'alert error';
+          statusBox.innerText = '❌ ' + (result.msg || 'Có lỗi xảy ra, vui lòng thử lại.');
+        }
+      } catch (err) {
+        statusBox.className = 'alert error';
+        statusBox.innerText = '❌ Lỗi kết nối máy chủ. Vui lòng kiểm tra lại mạng và thử lại.';
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '📤 Gửi dữ liệu về Phòng Tham mưu';
+      }
+    }
+  </script>
+</body>
+</html>
