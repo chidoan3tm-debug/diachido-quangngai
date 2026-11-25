@@ -342,6 +342,7 @@
       background: #2e7d32; color: #fff; text-decoration: none; border-radius: 8px;
       font-size: 13.5px; font-weight: 700;
     }
+
     /* Nút & Giao diện Hỗ trợ ANTT */
     .fab-btn.sos-btn { background: #0d47a1; color: #ffeb3b; font-size: 20px; border: 2px solid #ffeb3b; }
     .ca-dot {
@@ -494,6 +495,7 @@
       </div>
     </div>
   </div>
+
   <!-- Khung Hỗ trợ ANTT & Công an xã/phường/đặc khu -->
   <div id="antt-modal" class="modal-overlay">
     <div class="modal-card">
@@ -526,6 +528,7 @@
     const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=0&single=true&output=tsv';
     const LOGO_CONG_AN   = 'https://drive.google.com/file/d/1bbKKMYpO7jgozQ8YT9So2zYMOUSlPmY6/view?usp=drive_link';
     const LOGO_DOAN      = 'https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png?utm_source=vi.wikipedia.org&utm_campaign=index&utm_content=original';
+
     function formatImageUrl(url) {
       if (!url) return '';
       var str = String(url).trim();
@@ -685,50 +688,7 @@
         currentAudio.play().catch(function() { speakTextFallback(textToRead, 'Không phát được âm thanh'); });
       }
     };
-      var driveId = extractDriveFileId(rawAudio);
-      var gasUrl = (typeof GAS_CHECKIN_URL !== 'undefined') ? GAS_CHECKIN_URL : '';
 
-      // Nếu là link Google Drive -> tải qua trạm GAS để không bị chặn trên iPhone/Chrome
-      if (driveId && gasUrl && gasUrl.indexOf('https://script.google.com') === 0) {
-        if (btn) btn.innerText = '⏳ Đang tải...';
-
-        // Mở khóa quyền phát âm thanh ngay khi chạm trên Safari iPhone
-        var audioObj = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        currentAudio = audioObj;
-        audioObj.play().catch(function() {});
-
-        fetch(gasUrl + '?action=audio&id=' + encodeURIComponent(driveId))
-          .then(function(r) { return r.json(); })
-          .then(function(res) {
-            if (playingKey !== idKey) return;
-            if (!res.ok || !res.b64) throw new Error('No audio data');
-
-            var byteChars = atob(res.b64);
-            var byteNums = new Array(byteChars.length);
-            for (var i = 0; i < byteChars.length; i++) {
-              byteNums[i] = byteChars.charCodeAt(i);
-            }
-            var blob = new Blob([new Uint8Array(byteNums)], { type: res.mime || 'audio/mpeg' });
-            var blobUrl = URL.createObjectURL(blob);
-
-            if (btn) btn.innerText = '⏹️ Dừng';
-            audioObj.src = blobUrl;
-            audioObj.onended = function() { URL.revokeObjectURL(blobUrl); stopAllVoice(); };
-            audioObj.onerror = function() { URL.revokeObjectURL(blobUrl); speakTextFallback(textToRead); };
-            audioObj.play().catch(function() { speakTextFallback(textToRead); });
-          })
-          .catch(function() {
-            if (playingKey === idKey) speakTextFallback(textToRead);
-          });
-      } else {
-        // Link âm thanh trực tiếp bên ngoài (không phải Google Drive)
-        currentAudio = new Audio(rawAudio);
-        currentAudio.onended = function() { stopAllVoice(); };
-        currentAudio.onerror = function() { speakTextFallback(textToRead); };
-        currentAudio.play().catch(function() { speakTextFallback(textToRead); });
-      }
-    };
-    
     function calcDistance(lat1, lon1, lat2, lon2) {
       var R = 6371;
       var dLat = (lat2 - lat1) * Math.PI / 180;
@@ -887,11 +847,10 @@
       }
     }
 
-    // ===== KHỞI TẠO BẢN ĐỒ & ĐỌC DỮ LIỆU GOOGLE SHEETS (TSV) =====
     // ===== KHỞI TẠO BẢN ĐỒ, KHÓA KHUNG NHÌN & BO VIỀN QUẢNG NGÃI =====
     var qnBounds = L.latLngBounds(
-      [13.70, 107.00], // Góc Tây Nam
-      [15.80, 109.60]  // Góc Đông Bắc (bao gồm cả đảo Lý Sơn)
+      [13.70, 107.00],
+      [15.80, 109.60]
     );
 
     map = L.map('map', {
@@ -899,20 +858,18 @@
       minZoom: 8,
       maxZoom: 20,
       maxBounds: qnBounds,
-      maxBoundsViscosity: 0.85 // Giữ đàn hồi mượt, không cho kéo trôi ra ngoài tỉnh
+      maxBoundsViscosity: 0.85
     }).setView([15.1214, 108.8044], 10);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     map.on('popupclose', function() { stopAllVoice(); });
 
-    // Nạp ranh giới hành chính tỉnh Quảng Ngãi (GeoJSON từ OpenStreetMap)
     fetch('/quangngai.json')
       .then(function(res) { return res.json(); })
       .then(function(geo) {
         if (!geo || !geo.features || !geo.features[0]) return;
         var geom = geo.features[0].geometry;
 
-        // 1. Vẽ đường viền đỏ nổi bật bao quanh ranh giới tỉnh
         L.geoJSON(geom, {
           style: {
             color: '#c62828',
@@ -923,7 +880,6 @@
           interactive: false
         }).addTo(map);
 
-        // 2. Tạo lớp phủ làm mờ nhẹ vùng ngoài tỉnh để Quảng Ngãi sáng bật lên
         var worldRing = [[-90, -180], [-90, 180], [90, 180], [90, -180]];
         var holes = [];
         if (geom.type === 'Polygon') {
@@ -942,11 +898,7 @@
           }).addTo(map);
         }
       })
-      .catch(function() {
-        // Nếu mạng chậm không tải được viền thì bản đồ vẫn chạy bình thường
-      });
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
-    map.on('popupclose', function() { stopAllVoice(); });
+      .catch(function() {});
 
     streetLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps'
@@ -1256,7 +1208,7 @@
 
     // ===== TÍNH NĂNG CHECK-IN GPS, ĐẾM STT & VẼ 2 MẪU THẺ CÓ ẢNH MỜ =====
     const GAS_CHECKIN_URL = 'https://script.google.com/macros/s/AKfycbzbBNl9mJUFBa1RA_vFJwsuot52lS5R3sHopgnSug5ibUt57WfylqDNl_-D-cypE9xU8w/exec';
-    const MAX_CHECKIN_KM  = 0.5; // Bán kính cho phép Check-in: 0.5 km (500m). 
+    const MAX_CHECKIN_KM  = 0.5;
 
     var activeCheckinPlace = null;
     var isGpsValid = false;
@@ -1268,7 +1220,6 @@
       isGpsValid = false;
       var isTour = activeCheckinPlace.isTour;
 
-      // Đổi màu tiêu đề modal theo phân loại (Đỏ cho Địa chỉ đỏ, Xanh ngọc cho Du lịch)
       document.getElementById('checkin-modal-head').style.background = isTour
         ? 'linear-gradient(135deg, #00695c, #00897b)'
         : 'linear-gradient(135deg, #b71c1c, #d32f2f)';
@@ -1291,7 +1242,6 @@
       document.getElementById('btn-download-cert').style.display = 'none';
       document.getElementById('checkin-modal').classList.add('open');
 
-      // Kiểm tra GPS thực tế
       var gpsBox = document.getElementById('gps-status');
       gpsBox.style.background = '#fff3e0';
       gpsBox.style.color = '#e65100';
@@ -1346,7 +1296,6 @@
       btn.disabled = true;
       btn.innerText = '⏳ Đang ghi nhận lượt Check-in...';
 
-      // 1. Gọi sang GAS để lưu vào Sheets và lấy số thứ tự check-in thật
       var stt = 1;
       if (GAS_CHECKIN_URL && GAS_CHECKIN_URL.indexOf('DAN_LINK_') !== 0) {
         try {
@@ -1361,7 +1310,6 @@
         } catch (e) {}
       }
 
-      // 2. Tải ảnh địa điểm để in mờ làm nền (nếu có)
       var bgImg = null;
       if (activeCheckinPlace.cleanImg) {
         bgImg = await new Promise(function(resolve) {
@@ -1384,7 +1332,6 @@
       var W = canvas.width, H = canvas.height;
       var isTour = activeCheckinPlace.isTour;
 
-      // Bảng màu riêng biệt cho Địa chỉ đỏ vs Du lịch
       var theme = isTour ? {
         bg1: '#f0fdfa', bg2: '#e0f2fe',
         borderOut: '#00695c', borderIn: '#0288d1',
@@ -1407,14 +1354,12 @@
         badgeBg: '#d84315'
       };
 
-      // Nền màu gradient
       var bg = ctx.createLinearGradient(0, 0, W, H);
       bg.addColorStop(0, theme.bg1);
       bg.addColorStop(1, theme.bg2);
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      // In ảnh mờ của chính địa điểm làm nền (Watermark)
       if (bgImg) {
         ctx.save();
         ctx.globalAlpha = 0.16;
@@ -1425,7 +1370,6 @@
         ctx.restore();
       }
 
-      // Viền ngoài & viền trong
       ctx.strokeStyle = theme.borderOut;
       ctx.lineWidth = 14;
       ctx.strokeRect(18, 18, W - 36, H - 36);
@@ -1433,7 +1377,6 @@
       ctx.lineWidth = 3;
       ctx.strokeRect(32, 32, W - 64, H - 64);
 
-      // Dải tiêu đề trên cùng
       ctx.fillStyle = theme.headerBg;
       ctx.fillRect(34, 34, W - 68, 95);
 
@@ -1446,7 +1389,6 @@
       ctx.font = 'bold 24px Arial';
       ctx.fillText(theme.mainTitle, W / 2, 110);
 
-      // Tên người check-in
       ctx.fillStyle = '#444444';
       ctx.font = 'italic 20px Arial';
       ctx.fillText(theme.intro, W / 2, 182);
@@ -1465,7 +1407,6 @@
       ctx.font = '20px Arial';
       ctx.fillText(theme.actionText, W / 2, 318);
 
-      // Khung tên địa danh
       ctx.fillStyle = theme.boxBg;
       ctx.fillRect(85, 336, W - 170, 64);
       ctx.strokeStyle = theme.boxBorder;
@@ -1476,14 +1417,12 @@
       ctx.font = 'bold 25px Arial';
       ctx.fillText(activeCheckinPlace.TenDiaDanh, W / 2, 377);
 
-      // Huy hiệu số thứ tự Check-in
       ctx.fillStyle = theme.badgeBg;
       ctx.fillRect(W / 2 - 220, 418, 440, 38);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 18px Arial';
       ctx.fillText('🏅 Bạn là người check-in thứ #' + stt + ' tại địa điểm này', W / 2, 443);
 
-      // Thời gian & chân trang
       var now = new Date();
       var dateStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
                     ' - Ngày ' + now.toLocaleDateString('vi-VN');
@@ -1495,7 +1434,6 @@
       ctx.font = 'italic 15px Arial';
       ctx.fillText('Bản đồ số Địa chỉ đỏ & Du lịch tỉnh Quảng Ngãi', W / 2, 526);
 
-      // Xuất ảnh & nút tải
       try {
         var imgUrl = canvas.toDataURL('image/png');
         var preview = document.getElementById('cert-preview');
@@ -1507,10 +1445,10 @@
         dlBtn.download = 'CheckIn-' + activeCheckinPlace.TenDiaDanh.replace(/\s+/g, '-') + '-STT' + stt + '.png';
         dlBtn.style.display = 'block';
       } catch (e) {
-        // Nếu ảnh Drive bị chặn quyền CORS khi xuất PNG -> tự vẽ lại bản không có ảnh mờ để vẫn tải được thẻ
         drawCertificateCanvas(name, unit, stt, null);
       }
     }
+
     // ===== TÍNH NĂNG HỖ TRỢ ANTT (CÔNG AN XÃ/PHƯỜNG/ĐẶC KHU) =====
     const SHEET_CAX_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=1178090317&single=true&output=tsv';
     var allCaUnits = [];
@@ -1608,7 +1546,6 @@
         return !kw || (u.TenDonVi || '').toLowerCase().indexOf(kw) !== -1 || (u.DiaChi || '').toLowerCase().indexOf(kw) !== -1;
       });
 
-      // Nếu không tìm kiếm, chỉ hiện top 5 gần nhất cho gọn màn hình
       if (!kw) list = list.slice(0, 5);
 
       if (list.length === 0) {
