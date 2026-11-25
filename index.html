@@ -526,15 +526,6 @@
     const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=0&single=true&output=tsv';
     const LOGO_CONG_AN   = 'https://drive.google.com/file/d/1bbKKMYpO7jgozQ8YT9So2zYMOUSlPmY6/view?usp=drive_link';
     const LOGO_DOAN      = 'https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png?utm_source=vi.wikipedia.org&utm_campaign=index&utm_content=original';
-    function getDirectAudioUrl(url) {
-  if (!url) return "";
-  var cleanUrl = String(url).trim();
-  var match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (match && match[1]) {
-    return "https://docs.google.com/uc?export=open&id=" + match[1];
-  }
-  return cleanUrl;
-}
     function formatImageUrl(url) {
       if (!url) return '';
       var str = String(url).trim();
@@ -603,23 +594,16 @@
       }
     }
 
-    function getDirectAudioUrl(url) {
-      if (!url) return '';
-      var cleanUrl = String(url).trim();
-      var match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        return 'https://docs.google.com/uc?export=open&id=' + match[1];
-      }
-      return cleanUrl;
-    }
-
     function extractDriveFileId(url) {
       if (!url) return '';
       var match = String(url).trim().match(/\/d\/([a-zA-Z0-9_-]+)/) || String(url).trim().match(/[?&]id=([a-zA-Z0-9_-]+)/);
       return (match && match[1]) ? match[1] : '';
     }
 
-    function speakTextFallback(text) {
+    function speakTextFallback(text, reason) {
+      if (reason) {
+        showToast('⚠️ ' + reason + ' (đang đọc tự động)', 3500);
+      }
       if (!('speechSynthesis' in window)) {
         showToast('Trình duyệt không hỗ trợ đọc văn bản tự động.', 3000);
         stopAllVoice();
@@ -648,10 +632,59 @@
       var rawAudio = String(place.cleanAudio || place.LinkAudio || '').trim();
 
       if (!rawAudio) {
-        speakTextFallback(textToRead);
+        speakTextFallback(textToRead, '');
         return;
       }
 
+      var driveId = extractDriveFileId(rawAudio);
+      var gasUrl = (typeof GAS_CHECKIN_URL !== 'undefined') ? GAS_CHECKIN_URL : '';
+
+      if (driveId && gasUrl && gasUrl.indexOf('https://script.google.com') === 0) {
+        if (btn) btn.innerText = '⏳ Đang tải...';
+
+        // Mở khóa quyền phát âm thanh ngay lúc chạm trên iPhone
+        var audioObj = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        currentAudio = audioObj;
+        audioObj.play().catch(function() {});
+
+        fetch(gasUrl + '?action=audio&id=' + encodeURIComponent(driveId))
+          .then(function(r) { return r.text(); })
+          .then(function(rawText) {
+            if (playingKey !== idKey) return;
+            var res;
+            try {
+              res = JSON.parse(rawText);
+            } catch (e) {
+              throw new Error('Chưa cập nhật phiên bản mới trên Apps Script');
+            }
+            if (!res.ok || !res.b64) {
+              throw new Error(res.msg || 'Không đọc được file trên Drive');
+            }
+
+            if (btn) btn.innerText = '⏹️ Dừng';
+            var safeMime = (res.mime === 'audio/x-m4a' || res.mime === 'application/octet-stream') ? 'audio/mp4' : (res.mime || 'audio/mpeg');
+            audioObj.src = 'data:' + safeMime + ';base64,' + res.b64;
+            audioObj.load();
+            audioObj.onended = function() { stopAllVoice(); };
+            audioObj.onerror = function() {
+              speakTextFallback(textToRead, 'Định dạng file âm thanh không hỗ trợ trên máy này');
+            };
+            audioObj.play().catch(function(err) {
+              speakTextFallback(textToRead, 'Trình duyệt chặn tự phát (' + err.name + ')');
+            });
+          })
+          .catch(function(err) {
+            if (playingKey === idKey) {
+              speakTextFallback(textToRead, err.message);
+            }
+          });
+      } else {
+        currentAudio = new Audio(rawAudio);
+        currentAudio.onended = function() { stopAllVoice(); };
+        currentAudio.onerror = function() { speakTextFallback(textToRead, 'Không mở được link âm thanh'); };
+        currentAudio.play().catch(function() { speakTextFallback(textToRead, 'Không phát được âm thanh'); });
+      }
+    };
       var driveId = extractDriveFileId(rawAudio);
       var gasUrl = (typeof GAS_CHECKIN_URL !== 'undefined') ? GAS_CHECKIN_URL : '';
 
