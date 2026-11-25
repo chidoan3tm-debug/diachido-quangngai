@@ -45,6 +45,19 @@
     input:focus, select:focus, textarea:focus { border-color: #b71c1c; }
     textarea { resize: vertical; min-height: 90px; }
 
+    /* Hàng chọn tệp kèm nút X xóa */
+    .file-row { display: flex; align-items: center; gap: 6px; }
+    .file-row input[type="file"] {
+      flex: 1; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px;
+      background: #fff; font-size: 13px; width: 100%;
+    }
+    .btn-clear-file {
+      display: none; flex-shrink: 0; width: 34px; height: 34px;
+      background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;
+      border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .btn-clear-file.show { display: inline-flex; align-items: center; justify-content: center; }
+
     .media-box {
       background: #fafafa; border: 1px solid #e5e7eb; border-radius: 10px;
       padding: 12px; margin-bottom: 14px;
@@ -77,7 +90,7 @@
 
     .alert {
       padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 14px;
-      display: none; font-weight: 600;
+      display: none; font-weight: 600; word-break: break-word;
     }
     .alert.success { display: block; background: #dcfce7; color: #166534; border: 1px solid #86efac; }
     .alert.error { display: block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
@@ -102,7 +115,6 @@
     </div>
 
     <div class="form-body">
-      <!-- Thông tin chung người gửi -->
       <div class="form-group">
         <label>Cán bộ / Đơn vị gửi thông tin <span>*</span></label>
         <input type="text" id="nguoi-gui" placeholder="Ví dụ: Thượng úy Nguyễn Văn A - Bí thư Chi đoàn CA xã...">
@@ -128,18 +140,24 @@
 
         <div class="media-box">
           <div class="media-box-title">📎 Tư liệu đa phương tiện (Ảnh, Voice, Video, Web)</div>
-          
+
           <div class="form-group">
             <label>1. Hình ảnh thực tế tại địa điểm</label>
-            <input type="file" id="file-anh" accept="image/*">
-            <div class="hint">Chọn ảnh từ điện thoại, hệ thống tự nén nhẹ và lưu lên kho tỉnh.</div>
+            <div class="file-row">
+              <input type="file" id="file-anh" accept="image/*" onchange="toggleClearBtn('file-anh', 'clear-anh')">
+              <button type="button" id="clear-anh" class="btn-clear-file" title="Xóa ảnh đã chọn" onclick="clearFileInput('file-anh', 'clear-anh')">✕</button>
+            </div>
+            <div class="hint">Hệ thống tự nén nhẹ ảnh trước khi gửi để chạy mượt trên mạng 4G.</div>
           </div>
 
           <div class="form-group">
             <label>2. File ghi âm / Link giọng đọc thuyết minh (nếu có)</label>
-            <input type="file" id="file-audio" accept="audio/*" style="margin-bottom:6px;">
+            <div class="file-row" style="margin-bottom:6px;">
+              <input type="file" id="file-audio" accept=".mp3,.m4a,.wav,.aac,.ogg,.amr,audio/*" onchange="toggleClearBtn('file-audio', 'clear-audio')">
+              <button type="button" id="clear-audio" class="btn-clear-file" title="Xóa file âm thanh" onclick="clearFileInput('file-audio', 'clear-audio')">✕</button>
+            </div>
             <input type="text" id="link-audio" placeholder="Hoặc dán link file âm thanh Google Drive vào đây...">
-            <div class="hint">Hỗ trợ tải trực tiếp file MP3/M4A dưới 10MB (nếu bỏ trống, bản đồ tự đọc văn bản tóm tắt).</div>
+            <div class="hint">Trên iPhone: bấm <b>Chọn tệp -> Chọn tệp (Files)</b> để lấy bản thu từ ứng dụng Ghi âm (tối đa 3MB; file lớn hơn nên dán link Drive).</div>
           </div>
 
           <div class="form-group">
@@ -199,6 +217,21 @@
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzbBNl9mJUFBa1RA_vFJwsuot52lS5R3sHopgnSug5ibUt57WfylqDNl_-D-cypE9xU8w/exec';
     var currentForm = 'place';
 
+    function toggleClearBtn(inputId, btnId) {
+      var input = document.getElementById(inputId);
+      var btn = document.getElementById(btnId);
+      if (input.files && input.files.length > 0) {
+        btn.classList.add('show');
+      } else {
+        btn.classList.remove('show');
+      }
+    }
+
+    function clearFileInput(inputId, btnId) {
+      document.getElementById(inputId).value = '';
+      document.getElementById(btnId).classList.remove('show');
+    }
+
     function switchForm(type) {
       currentForm = type;
       var header = document.getElementById('page-header');
@@ -254,13 +287,13 @@
           var img = new Image();
           img.onload = function() {
             var canvas = document.createElement('canvas');
-            var maxW = 1200;
+            var maxW = 800;
             var scale = img.width > maxW ? maxW / img.width : 1;
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
             var ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.65);
             resolve({
               base64: dataUrl.split(',')[1],
               name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
@@ -290,6 +323,12 @@
     async function submitForm() {
       var statusBox = document.getElementById('status-box');
       statusBox.className = 'alert';
+
+      if (!GAS_API_URL || GAS_API_URL.indexOf('https://script.google.com') !== 0) {
+        statusBox.className = 'alert error';
+        statusBox.innerText = '❌ Chưa dán đường link /exec của Google Apps Script vào dòng GAS_API_URL!';
+        return;
+      }
 
       var nguoiGui = document.getElementById('nguoi-gui').value.trim();
       var viDo = document.getElementById('vi-do').value.trim().replace(',', '.');
@@ -323,9 +362,9 @@
         }
 
         var audioInput = document.getElementById('file-audio');
-        if (audioInput.files && audioInput.files[0] && audioInput.files[0].size > 10 * 1024 * 1024) {
+        if (audioInput.files && audioInput.files[0] && audioInput.files[0].size > 3 * 1024 * 1024) {
           statusBox.className = 'alert error';
-          statusBox.innerText = '❌ File âm thanh vượt quá 10MB. Vui lòng tải lên Google Drive rồi dán link vào ô bên dưới!';
+          statusBox.innerText = '❌ File âm thanh nặng hơn 3MB dễ gây nghẽn mạng. Bạn hãy bấm ✕ xóa file, tải lên Google Drive rồi dán link vào ô bên dưới!';
           return;
         }
       } else {
@@ -342,12 +381,15 @@
 
       var btn = document.getElementById('btn-submit');
       btn.disabled = true;
-      btn.innerText = '⏳ Đang tải tư liệu và gửi dữ liệu...';
+
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function() { controller.abort(); }, 35000);
 
       try {
         if (currentForm === 'place') {
           var fileInput = document.getElementById('file-anh');
           if (fileInput.files && fileInput.files[0]) {
+            btn.innerText = '⏳ Đang nén hình ảnh...';
             var compressed = await compressImage(fileInput.files[0]);
             payload.imageBase64 = compressed.base64;
             payload.imageName = compressed.name;
@@ -356,6 +398,7 @@
 
           var audioFileInput = document.getElementById('file-audio');
           if (audioFileInput.files && audioFileInput.files[0]) {
+            btn.innerText = '⏳ Đang xử lý file âm thanh...';
             var audioData = await readAudioFile(audioFileInput.files[0]);
             payload.audioBase64 = audioData.base64;
             payload.audioName = audioData.name;
@@ -363,20 +406,31 @@
           }
         }
 
+        btn.innerText = '⏳ Đang gửi dữ liệu...';
         var res = await fetch(GAS_API_URL, {
           method: 'POST',
+          redirect: 'follow',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          signal: controller.signal,
           body: JSON.stringify(payload)
         });
-        var result = await res.json();
+        clearTimeout(timeoutId);
+
+        var rawText = await res.text();
+        var result;
+        try {
+          result = JSON.parse(rawText);
+        } catch (e) {
+          throw new Error('Google không trả về dữ liệu hợp lệ (kiểm tra lại quyền "Bất kỳ ai" trên Apps Script).');
+        }
 
         if (result.ok) {
           statusBox.className = 'alert success';
           statusBox.innerText = '✅ ' + result.msg;
           document.getElementById('ten-dia-danh').value = '';
           document.getElementById('tom-tat').value = '';
-          document.getElementById('file-anh').value = '';
-          document.getElementById('file-audio').value = '';
+          clearFileInput('file-anh', 'clear-anh');
+          clearFileInput('file-audio', 'clear-audio');
           document.getElementById('link-audio').value = '';
           document.getElementById('link-video').value = '';
           document.getElementById('link-web').value = '';
@@ -391,8 +445,13 @@
           statusBox.innerText = '❌ ' + (result.msg || 'Có lỗi xảy ra, vui lòng thử lại.');
         }
       } catch (err) {
+        clearTimeout(timeoutId);
         statusBox.className = 'alert error';
-        statusBox.innerText = '❌ Lỗi kết nối máy chủ. Vui lòng kiểm tra lại mạng và thử lại.';
+        if (err.name === 'AbortError') {
+          statusBox.innerText = '⏳ Quá thời gian chờ (35s). Bạn kiểm tra Google Sheets xem dữ liệu đã vào chưa trước khi gửi lại nhé!';
+        } else {
+          statusBox.innerText = '❌ Lỗi: ' + err.message;
+        }
       } finally {
         btn.disabled = false;
         btn.innerText = '📤 Gửi dữ liệu về Phòng Tham mưu';
