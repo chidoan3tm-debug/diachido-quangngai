@@ -603,6 +603,16 @@
       }
     }
 
+    function getDirectAudioUrl(url) {
+      if (!url) return '';
+      var cleanUrl = String(url).trim();
+      var match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return 'https://docs.google.com/uc?export=open&id=' + match[1];
+      }
+      return cleanUrl;
+    }
+
     function speakTextFallback(text) {
       if (!('speechSynthesis' in window)) {
         showToast('Trình duyệt không hỗ trợ đọc văn bản tự động.', 3000);
@@ -629,9 +639,10 @@
       if (btn) { btn.classList.add('playing'); btn.innerText = '⏹️ Dừng'; }
 
       var textToRead = (place.TenDiaDanh || '') + '. ' + (place.TomTat || 'Chưa có nội dung thuyết minh.');
+      var audioSrc = getDirectAudioUrl(place.cleanAudio);
 
-      if (place.cleanAudio) {
-        currentAudio = new Audio(place.cleanAudio);
+      if (audioSrc) {
+        currentAudio = new Audio(audioSrc);
         currentAudio.onended = function() { stopAllVoice(); };
         currentAudio.onerror = function() { speakTextFallback(textToRead); };
         currentAudio.play().catch(function() { speakTextFallback(textToRead); });
@@ -639,7 +650,6 @@
         speakTextFallback(textToRead);
       }
     };
-
     function calcDistance(lat1, lon1, lat2, lon2) {
       var R = 6371;
       var dLat = (lat2 - lat1) * Math.PI / 180;
