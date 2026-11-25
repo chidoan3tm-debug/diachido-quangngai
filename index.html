@@ -526,7 +526,15 @@
     const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2ZjU1bZxZqnhCtqYvnT_WORhQ0pWBCv6YKLkIrNIBQzNvUNmms5tvzDH2dgaiDCiKbYhAe6VxNT4_/pub?gid=0&single=true&output=tsv';
     const LOGO_CONG_AN   = 'https://drive.google.com/file/d/1bbKKMYpO7jgozQ8YT9So2zYMOUSlPmY6/view?usp=drive_link';
     const LOGO_DOAN      = 'https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png?utm_source=vi.wikipedia.org&utm_campaign=index&utm_content=original';
-
+    function getDirectAudioUrl(url) {
+  if (!url) return "";
+  var cleanUrl = String(url).trim();
+  var match = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return "https://docs.google.com/uc?export=open&id=" + match[1];
+  }
+  return cleanUrl;
+}
     function formatImageUrl(url) {
       if (!url) return '';
       var str = String(url).trim();
