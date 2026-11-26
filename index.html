@@ -855,12 +855,14 @@
 
     map = L.map('map', {
       zoomControl: false,
-      minZoom: 8,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
       maxZoom: 20,
       maxBounds: qnBounds,
       maxBoundsViscosity: 1.0
-    }).setView([14.72, 108.25], 8);
-    map.setMinZoom(Math.max(8, map.getBoundsZoom(qnBounds)));
+    });
+    map.fitBounds(qnBounds);
+    map.setMinZoom(map.getZoom());
     map.attributionControl.setPrefix('');
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
     map.on('popupclose', function() { stopAllVoice(); });
